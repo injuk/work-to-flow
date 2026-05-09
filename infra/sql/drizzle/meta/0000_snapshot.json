@@ -1,0 +1,724 @@
+{
+  "version": "5",
+  "dialect": "mysql",
+  "id": "965ef772-1f09-43ed-8dad-3d73f22571e4",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "StepSchemaRelations": {
+      "name": "StepSchemaRelations",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "FrontSchemaId": {
+          "name": "FrontSchemaId",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "RearSchemaId": {
+          "name": "RearSchemaId",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Label": {
+          "name": "Label",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "StepSchemaRelations_fk_1": {
+          "name": "StepSchemaRelations_fk_1",
+          "tableFrom": "StepSchemaRelations",
+          "tableTo": "WorkflowStepSchemas",
+          "columnsFrom": [
+            "FrontSchemaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "StepSchemaRelations_fk_2": {
+          "name": "StepSchemaRelations_fk_2",
+          "tableFrom": "StepSchemaRelations",
+          "tableTo": "WorkflowStepSchemas",
+          "columnsFrom": [
+            "RearSchemaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "StepSchemaRelations_Id": {
+          "name": "StepSchemaRelations_Id",
+          "columns": [
+            "Id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "StepSchemaRelations_uq_1": {
+          "name": "StepSchemaRelations_uq_1",
+          "columns": [
+            "FrontSchemaId",
+            "RearSchemaId"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "WorkflowExecutions": {
+      "name": "WorkflowExecutions",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "IdempotencyKey": {
+          "name": "IdempotencyKey",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "WorkflowId": {
+          "name": "WorkflowId",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Status": {
+          "name": "Status",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'RUNNING'"
+        },
+        "TotalStepCount": {
+          "name": "TotalStepCount",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "SuccessCount": {
+          "name": "SuccessCount",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "CanceledCount": {
+          "name": "CanceledCount",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "SkippedCount": {
+          "name": "SkippedCount",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "FailureCount": {
+          "name": "FailureCount",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "StartedAt": {
+          "name": "StartedAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "UpdatedAt": {
+          "name": "UpdatedAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "CanceledAt": {
+          "name": "CanceledAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "EndedAt": {
+          "name": "EndedAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "WorkflowExecutions_fk_1": {
+          "name": "WorkflowExecutions_fk_1",
+          "tableFrom": "WorkflowExecutions",
+          "tableTo": "Workflows",
+          "columnsFrom": [
+            "WorkflowId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "WorkflowExecutions_Id": {
+          "name": "WorkflowExecutions_Id",
+          "columns": [
+            "Id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "WorkflowExecutions_uq_1": {
+          "name": "WorkflowExecutions_uq_1",
+          "columns": [
+            "IdempotencyKey"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "WorkflowResumeTriggers": {
+      "name": "WorkflowResumeTriggers",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "StepExecutionId": {
+          "name": "StepExecutionId",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Key": {
+          "name": "Key",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "WorkflowResumeTriggers_fk_1": {
+          "name": "WorkflowResumeTriggers_fk_1",
+          "tableFrom": "WorkflowResumeTriggers",
+          "tableTo": "WorkflowStepExecutions",
+          "columnsFrom": [
+            "StepExecutionId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "WorkflowResumeTriggers_Id": {
+          "name": "WorkflowResumeTriggers_Id",
+          "columns": [
+            "Id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "WorkflowResumeTriggers_uq_1": {
+          "name": "WorkflowResumeTriggers_uq_1",
+          "columns": [
+            "StepExecutionId"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "WorkflowStartTriggers": {
+      "name": "WorkflowStartTriggers",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "WorkflowId": {
+          "name": "WorkflowId",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Key": {
+          "name": "Key",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "WorkflowStartTriggers_fk_1": {
+          "name": "WorkflowStartTriggers_fk_1",
+          "tableFrom": "WorkflowStartTriggers",
+          "tableTo": "Workflows",
+          "columnsFrom": [
+            "WorkflowId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "WorkflowStartTriggers_Id": {
+          "name": "WorkflowStartTriggers_Id",
+          "columns": [
+            "Id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "WorkflowStartTriggers_uq_1": {
+          "name": "WorkflowStartTriggers_uq_1",
+          "columns": [
+            "WorkflowId"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "WorkflowStepExecutions": {
+      "name": "WorkflowStepExecutions",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "ExecutionId": {
+          "name": "ExecutionId",
+          "type": "varchar(36)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "StepId": {
+          "name": "StepId",
+          "type": "varchar(24)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Status": {
+          "name": "Status",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'READY'"
+        },
+        "Input": {
+          "name": "Input",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Output": {
+          "name": "Output",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "StartedAt": {
+          "name": "StartedAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "UpdatedAt": {
+          "name": "UpdatedAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "EndedAt": {
+          "name": "EndedAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "WorkflowStepExecutions_fk_1": {
+          "name": "WorkflowStepExecutions_fk_1",
+          "tableFrom": "WorkflowStepExecutions",
+          "tableTo": "WorkflowExecutions",
+          "columnsFrom": [
+            "ExecutionId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "WorkflowStepExecutions_fk_2": {
+          "name": "WorkflowStepExecutions_fk_2",
+          "tableFrom": "WorkflowStepExecutions",
+          "tableTo": "WorkflowSteps",
+          "columnsFrom": [
+            "StepId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "WorkflowStepExecutions_Id": {
+          "name": "WorkflowStepExecutions_Id",
+          "columns": [
+            "Id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "WorkflowStepExecutions_uq_1": {
+          "name": "WorkflowStepExecutions_uq_1",
+          "columns": [
+            "ExecutionId",
+            "StepId"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "WorkflowStepSchemas": {
+      "name": "WorkflowStepSchemas",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Type": {
+          "name": "Type",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Condition": {
+          "name": "Condition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "IsHidden": {
+          "name": "IsHidden",
+          "type": "boolean",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "WorkflowStepSchemas_Id": {
+          "name": "WorkflowStepSchemas_Id",
+          "columns": [
+            "Id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "WorkflowStepSchemas_uq_1": {
+          "name": "WorkflowStepSchemas_uq_1",
+          "columns": [
+            "Name"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "WorkflowSteps": {
+      "name": "WorkflowSteps",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "varchar(24)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "WorkflowId": {
+          "name": "WorkflowId",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "SchemaId": {
+          "name": "SchemaId",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Condition": {
+          "name": "Condition",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ParentId": {
+          "name": "ParentId",
+          "type": "varchar(24)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "Position": {
+          "name": "Position",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        }
+      },
+      "indexes": {
+        "WorkflowSteps_idx_1": {
+          "name": "WorkflowSteps_idx_1",
+          "columns": [
+            "WorkflowId",
+            "Id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "WorkflowSteps_fk_1": {
+          "name": "WorkflowSteps_fk_1",
+          "tableFrom": "WorkflowSteps",
+          "tableTo": "Workflows",
+          "columnsFrom": [
+            "WorkflowId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "WorkflowSteps_fk_2": {
+          "name": "WorkflowSteps_fk_2",
+          "tableFrom": "WorkflowSteps",
+          "tableTo": "WorkflowStepSchemas",
+          "columnsFrom": [
+            "SchemaId"
+          ],
+          "columnsTo": [
+            "Id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "WorkflowSteps_fk_3": {
+          "name": "WorkflowSteps_fk_3",
+          "tableFrom": "WorkflowSteps",
+          "tableTo": "WorkflowSteps",
+          "columnsFrom": [
+            "WorkflowId",
+            "ParentId"
+          ],
+          "columnsTo": [
+            "WorkflowId",
+            "Id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "WorkflowSteps_Id": {
+          "name": "WorkflowSteps_Id",
+          "columns": [
+            "Id"
+          ]
+        }
+      },
+      "uniqueConstraints": {
+        "WorkflowSteps_uq_1": {
+          "name": "WorkflowSteps_uq_1",
+          "columns": [
+            "WorkflowId",
+            "ParentId",
+            "Position"
+          ]
+        }
+      },
+      "checkConstraint": {}
+    },
+    "Workflows": {
+      "name": "Workflows",
+      "columns": {
+        "Id": {
+          "name": "Id",
+          "type": "int unsigned",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "ProjectId": {
+          "name": "ProjectId",
+          "type": "varchar(50)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Name": {
+          "name": "Name",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "Description": {
+          "name": "Description",
+          "type": "varchar(1024)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "Status": {
+          "name": "Status",
+          "type": "varchar(20)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'DRAFT'"
+        },
+        "CreatedAt": {
+          "name": "CreatedAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "UpdatedAt": {
+          "name": "UpdatedAt",
+          "type": "datetime",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "CURRENT_TIMESTAMP"
+        },
+        "CreatedById": {
+          "name": "CreatedById",
+          "type": "varchar(100)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "Workflows_Id": {
+          "name": "Workflows_Id",
+          "columns": [
+            "Id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    }
+  },
+  "views": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "tables": {},
+    "indexes": {}
+  }
+}
