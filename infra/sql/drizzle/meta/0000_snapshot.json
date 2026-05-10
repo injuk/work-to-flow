@@ -1,7 +1,7 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "965ef772-1f09-43ed-8dad-3d73f22571e4",
+  "id": "723f643e-f92d-463f-960d-8e75e89a1e56",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "StepSchemaRelations": {
@@ -414,19 +414,6 @@
           "tableTo": "WorkflowExecutions",
           "columnsFrom": [
             "ExecutionId"
-          ],
-          "columnsTo": [
-            "Id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        },
-        "WorkflowStepExecutions_fk_2": {
-          "name": "WorkflowStepExecutions_fk_2",
-          "tableFrom": "WorkflowStepExecutions",
-          "tableTo": "WorkflowSteps",
-          "columnsFrom": [
-            "StepId"
           ],
           "columnsTo": [
             "Id"
