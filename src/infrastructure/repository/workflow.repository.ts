@@ -3,13 +3,24 @@ import { and, desc, eq } from 'drizzle-orm';
 import { drizzleClient, schema, type Connection } from './db';
 import type { CreateWorkflowEntity, ListWorkflowsConditions } from '../../domain/type/workflow.dao';
 
-const { Workflows } = schema;
+const { Workflows, WorkflowSteps, WorkflowStepSchemas } = schema;
 
 export type WorkflowRow = typeof Workflows.$inferSelect;
 
 export interface ListWorkflowsSearch extends ListWorkflowsConditions {
 	offset: number;
 	limit: number;
+}
+
+export interface StepWithSchemaRow {
+	id: string;
+	parentId: string | null;
+	position: number;
+	condition: string;
+	schemaId: number;
+	schemaName: string;
+	schemaType: string;
+	schemaIsHidden: boolean;
 }
 
 export const createAsync = async (
@@ -34,6 +45,28 @@ export const getAsync = async (
 	return drizzleClient.executeQuery(async (client) => {
 		const rows = await client.select().from(Workflows).where(eq(Workflows.Id, id)).limit(1);
 		return rows[0] ?? null;
+	}, connection);
+};
+
+export const listStepsByWorkflowAsync = async (
+	workflowId: number,
+	connection: Connection | null = null,
+): Promise<StepWithSchemaRow[]> => {
+	return drizzleClient.executeQuery(async (client) => {
+		return client
+			.select({
+				id: WorkflowSteps.Id,
+				parentId: WorkflowSteps.ParentId,
+				position: WorkflowSteps.Position,
+				condition: WorkflowSteps.Condition,
+				schemaId: WorkflowStepSchemas.Id,
+				schemaName: WorkflowStepSchemas.Name,
+				schemaType: WorkflowStepSchemas.Type,
+				schemaIsHidden: WorkflowStepSchemas.IsHidden,
+			})
+			.from(WorkflowSteps)
+			.innerJoin(WorkflowStepSchemas, eq(WorkflowSteps.SchemaId, WorkflowStepSchemas.Id))
+			.where(eq(WorkflowSteps.WorkflowId, workflowId));
 	}, connection);
 };
 

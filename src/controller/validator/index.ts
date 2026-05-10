@@ -1,11 +1,12 @@
 import type { z } from 'zod';
 
-import { createWorkflowSchema, listWorkflowsSchema } from './workflow.schema';
+import { createWorkflowSchema, getWorkflowSchema, listWorkflowsSchema } from './workflow.schema';
 import { InvalidArgumentException } from '../../domain/exception';
 
 const schemas: Record<string, z.ZodTypeAny> = {
 	createWorkflow: createWorkflowSchema,
 	listWorkflows: listWorkflowsSchema,
+	getWorkflow: getWorkflowSchema,
 };
 
 export default class Validator {

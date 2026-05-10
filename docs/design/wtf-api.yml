@@ -565,7 +565,11 @@ components:
         status:
           $ref: '#/components/schemas/WorkflowStatus'
         stepTree:
-          $ref: '#/components/schemas/WorkflowStep'
+          description: |
+            Step 트리. PUT /workflows/{workflowId}/steps 호출 전 또는 트리가 비어 있는 경우 `null`로 반환된다.
+          nullable: true
+          allOf:
+            - $ref: '#/components/schemas/WorkflowStep'
         created:
           $ref: '#/components/schemas/Actioned'
         updated:

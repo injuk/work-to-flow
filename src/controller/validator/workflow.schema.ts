@@ -10,6 +10,15 @@ export const createWorkflowSchema = z
 	})
 	.passthrough();
 
+export const getWorkflowSchema = z
+	.object({
+		function: z.literal('getWorkflow'),
+		pathParameters: z.object({
+			workflowId: z.string().min(1),
+		}),
+	})
+	.passthrough();
+
 export const listWorkflowsSchema = z
 	.object({
 		function: z.literal('listWorkflows'),

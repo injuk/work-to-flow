@@ -1,10 +1,13 @@
 import type { BaseEvent } from '../core/lambda.router';
 import { requireProjectId } from '../core/request';
+import { InvalidArgumentException } from '../domain/exception';
 import * as workflowService from '../service/workflow.service';
-import { encodeOrThrow } from '../util/hashId';
+import { decodeOrThrow, encodeOrThrow } from '../util/hashId';
 import type {
 	CreateWorkflowEvent,
 	CreateWorkflowResponse,
+	GetWorkflowEvent,
+	GetWorkflowResponse,
 	ListWorkflowsEvent,
 	ListWorkflowsResponse,
 } from './dto/workflow.dto';
@@ -46,4 +49,20 @@ export const listAsync = async (
 		results: results.map((s) => ({ ...s, id: encodeOrThrow(s.id) })),
 		nextToken,
 	};
+};
+
+export const getAsync = async (
+	event: BaseEvent,
+	_context: unknown,
+): Promise<GetWorkflowResponse> => {
+	const projectId = requireProjectId(event);
+	const rawId = (event as GetWorkflowEvent).pathParameters?.workflowId;
+	if (!rawId) {
+		throw new InvalidArgumentException('workflowId is required');
+	}
+	const id = decodeOrThrow(rawId);
+
+	const workflow = await workflowService.getAsync(undefined, { id, projectId });
+
+	return { ...workflow, id: encodeOrThrow(workflow.id) };
 };

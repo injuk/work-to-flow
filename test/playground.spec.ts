@@ -1,6 +1,9 @@
 import { handler } from '../src/route';
 import { db } from '../src/infrastructure/repository/db';
-import type { ListWorkflowsResponse } from '../src/controller/dto/workflow.dto';
+import type {
+	GetWorkflowResponse,
+	ListWorkflowsResponse,
+} from '../src/controller/dto/workflow.dto';
 
 describe('playground', () => {
 	afterAll(async () => {
@@ -76,5 +79,41 @@ describe('playground', () => {
 		// Assert — 두 페이지를 합치면 INSERT한 3건과 정확히 일치
 		const seen = new Set([...firstPage.results, ...secondPage.results].map((r) => r.id));
 		expect(seen).toEqual(insertedIds);
+	});
+
+	it('getWorkflow가 stepTree=null인 DRAFT 워크플로우를 상세 조회한다', async () => {
+		// Arrange — 단건 INSERT
+		const projectId = `playground-get-${Date.now()}`;
+		const created = (await handler(
+			{
+				function: 'createWorkflow',
+				data: { name: `playground-get`, description: 'detail target' },
+				headers: { projectId },
+			},
+			{},
+		)) as { id: string };
+
+		// Act
+		const detail = (await handler(
+			{
+				function: 'getWorkflow',
+				headers: { projectId },
+				pathParameters: { workflowId: created.id },
+			},
+			{},
+		)) as GetWorkflowResponse;
+
+		// Assert
+		expect(detail.id).toBe(created.id);
+		expect(detail.project.id).toBe(projectId);
+		expect(detail.name).toBe('playground-get');
+		expect(detail.description).toBe('detail target');
+		expect(detail.status).toBe('DRAFT');
+		expect(detail.stepTree).toBeNull();
+		expect(detail.created.by).toEqual({
+			id: 'System',
+			name: 'System',
+			username: 'System',
+		});
 	});
 });

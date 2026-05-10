@@ -9,7 +9,7 @@ export interface Workflow {
 	name: string;
 	description: Nullable<string>;
 	status: WorkflowStatus;
-	stepTree: WorkflowStep;
+	stepTree: WorkflowStep | null;
 	created: Actioned;
 	updated: SimpleActioned;
 }

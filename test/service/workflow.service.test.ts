@@ -1,21 +1,27 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import { UncaughtException } from '../../src/domain/exception';
+import { ResourceNotFoundException, UncaughtException } from '../../src/domain/exception';
 import type {
 	CreateWorkflowEntity,
 	ListWorkflowsConditions,
 } from '../../src/domain/type/workflow.dao';
-import type { WorkflowRow } from '../../src/infrastructure/repository/workflow.repository';
+import type {
+	StepWithSchemaRow,
+	WorkflowRow,
+} from '../../src/infrastructure/repository/workflow.repository';
 
 const createRepositoryMock =
 	jest.fn<(entity: CreateWorkflowEntity, conn: unknown) => Promise<number>>();
+const getRepositoryMock = jest.fn<(id: number) => Promise<WorkflowRow | null>>();
+const listStepsRepositoryMock = jest.fn<(workflowId: number) => Promise<StepWithSchemaRow[]>>();
 const listRepositoryMock = jest.fn<(search: Record<string, unknown>) => Promise<WorkflowRow[]>>();
 const executeQueryWithTransactionMock =
 	jest.fn<(transaction: (tx: unknown) => Promise<unknown>) => Promise<unknown>>();
 
 jest.unstable_mockModule('../../src/infrastructure/repository/workflow.repository', () => ({
 	createAsync: createRepositoryMock,
-	getAsync: jest.fn(),
+	getAsync: getRepositoryMock,
+	listStepsByWorkflowAsync: listStepsRepositoryMock,
 	listAsync: listRepositoryMock,
 }));
 
@@ -26,7 +32,7 @@ jest.unstable_mockModule('../../src/infrastructure/repository/db', () => ({
 	},
 }));
 
-const { createAsync, listAsync } = await import('../../src/service/workflow.service');
+const { createAsync, getAsync, listAsync } = await import('../../src/service/workflow.service');
 
 const buildEntity = (): CreateWorkflowEntity => ({
 	projectId: 'proj-1',
@@ -94,6 +100,84 @@ describe('workflow.service', () => {
 
 			// Act & Assert
 			await expect(createAsync(undefined, buildEntity())).rejects.toBeInstanceOf(UncaughtException);
+		});
+	});
+
+	describe('getAsync', () => {
+		beforeEach(() => {
+			getRepositoryMock.mockReset();
+			listStepsRepositoryMock.mockReset();
+		});
+
+		it('Workflow와 stepTree(빈 트리는 null)를 함께 매핑하여 반환한다', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42));
+			listStepsRepositoryMock.mockResolvedValue([]);
+
+			// Act
+			const result = await getAsync(undefined, { id: 42, projectId: 'proj-1' });
+
+			// Assert
+			expect(result).toEqual({
+				id: 42,
+				project: { id: 'proj-1' },
+				name: 'wf-42',
+				description: null,
+				status: 'DRAFT',
+				stepTree: null,
+				created: {
+					at: new Date('2026-05-11T00:00:00Z'),
+					by: { id: 'System', name: 'System', username: 'System' },
+				},
+				updated: { at: new Date('2026-05-11T00:00:00Z') },
+			});
+			expect(listStepsRepositoryMock).toHaveBeenCalledWith(42);
+		});
+
+		it('step row가 있을 때 stepTree로 어셈블한다', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(7));
+			listStepsRepositoryMock.mockResolvedValue([
+				{
+					id: 'root',
+					parentId: null,
+					position: 0,
+					condition: '{}',
+					schemaId: 1,
+					schemaName: 'START',
+					schemaType: 'START',
+					schemaIsHidden: true,
+				},
+			]);
+
+			// Act
+			const result = await getAsync(undefined, { id: 7, projectId: 'proj-1' });
+
+			// Assert
+			expect(result.stepTree?.id).toBe('root');
+			expect(result.stepTree?.children).toEqual([]);
+		});
+
+		it('repository.getAsync가 null이면 ResourceNotFoundException을 throw한다', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(null);
+
+			// Act & Assert
+			await expect(getAsync(undefined, { id: 99, projectId: 'proj-1' })).rejects.toBeInstanceOf(
+				ResourceNotFoundException,
+			);
+			expect(listStepsRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('projectId가 일치하지 않으면 ResourceNotFoundException을 throw한다 (정보 누설 방지)', async () => {
+			// Arrange — row는 proj-1, 호출은 proj-2
+			getRepositoryMock.mockResolvedValue(buildRow(5));
+
+			// Act & Assert
+			await expect(getAsync(undefined, { id: 5, projectId: 'proj-2' })).rejects.toBeInstanceOf(
+				ResourceNotFoundException,
+			);
+			expect(listStepsRepositoryMock).not.toHaveBeenCalled();
 		});
 	});
 

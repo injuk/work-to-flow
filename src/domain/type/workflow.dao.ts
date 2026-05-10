@@ -11,3 +11,8 @@ export interface ListWorkflowsConditions {
 	projectId: string;
 	status?: WorkflowStatus;
 }
+
+export interface GetWorkflowConditions {
+	id: number;
+	projectId: string;
+}

@@ -1,6 +1,6 @@
 import type { BaseEvent } from '../../core/lambda.router';
 import type { PublicModel } from '../../domain/type/common.model';
-import type { WorkflowStatus, WorkflowSummary } from '../../domain/type/workflow.model';
+import type { Workflow, WorkflowStatus, WorkflowSummary } from '../../domain/type/workflow.model';
 
 export interface CreateWorkflowEvent extends BaseEvent {
 	function: 'createWorkflow';
@@ -27,3 +27,12 @@ export interface ListWorkflowsResponse {
 	results: PublicModel<WorkflowSummary>[];
 	nextToken: string | null;
 }
+
+export interface GetWorkflowEvent extends BaseEvent {
+	function: 'getWorkflow';
+	pathParameters?: {
+		workflowId?: string;
+	};
+}
+
+export type GetWorkflowResponse = PublicModel<Workflow>;

@@ -5,12 +5,15 @@ import type { PaginatedResult } from '../../src/core/token-based-pagination';
 import { InvalidArgumentException } from '../../src/domain/exception';
 import type {
 	CreateWorkflowEntity,
+	GetWorkflowConditions,
 	ListWorkflowsConditions,
 } from '../../src/domain/type/workflow.dao';
-import type { WorkflowSummary } from '../../src/domain/type/workflow.model';
+import type { Workflow, WorkflowSummary } from '../../src/domain/type/workflow.model';
 
 const createServiceMock =
 	jest.fn<(ctx: unknown, entity: CreateWorkflowEntity) => Promise<{ id: number }>>();
+const getServiceMock =
+	jest.fn<(ctx: unknown, conditions: GetWorkflowConditions) => Promise<Workflow>>();
 const listServiceMock =
 	jest.fn<
 		(
@@ -21,18 +24,21 @@ const listServiceMock =
 		) => Promise<PaginatedResult<WorkflowSummary>>
 	>();
 const encodeOrThrowMock = jest.fn<(plain: number) => string>();
+const decodeOrThrowMock = jest.fn<(cipher: string) => number>();
 
 jest.unstable_mockModule('../../src/service/workflow.service', () => ({
 	createAsync: createServiceMock,
+	getAsync: getServiceMock,
 	listAsync: listServiceMock,
 }));
 
 jest.unstable_mockModule('../../src/util/hashId', () => ({
 	encodeOrThrow: encodeOrThrowMock,
-	decodeOrThrow: jest.fn(),
+	decodeOrThrow: decodeOrThrowMock,
 }));
 
-const { createAsync, listAsync } = await import('../../src/controller/workflow.controller');
+const { createAsync, getAsync, listAsync } =
+	await import('../../src/controller/workflow.controller');
 
 const buildSummary = (id: number): WorkflowSummary => ({
 	id,
@@ -44,6 +50,12 @@ const buildSummary = (id: number): WorkflowSummary => ({
 		by: { id: 'System', name: 'System', username: 'System' },
 	},
 	updated: { at: new Date('2026-05-11T00:00:00Z') },
+});
+
+const buildWorkflow = (id: number): Workflow => ({
+	...buildSummary(id),
+	description: 'desc',
+	stepTree: null,
 });
 
 describe('workflow.controller', () => {
@@ -134,6 +146,60 @@ describe('workflow.controller', () => {
 			// Act & Assert
 			await expect(listAsync(event, undefined)).rejects.toBeInstanceOf(InvalidArgumentException);
 			expect(listServiceMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('getAsync', () => {
+		beforeEach(() => {
+			getServiceMock.mockReset();
+			encodeOrThrowMock.mockReset();
+			decodeOrThrowMock.mockReset();
+		});
+
+		it('workflowId를 디코드해 service에 전달하고 응답 id를 인코딩한다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'getWorkflow',
+				headers: { projectId: 'proj-1' },
+				pathParameters: { workflowId: 'cipher-42' },
+			};
+			decodeOrThrowMock.mockReturnValue(42);
+			getServiceMock.mockResolvedValue(buildWorkflow(42));
+			encodeOrThrowMock.mockReturnValue('cipher-42');
+
+			// Act
+			const result = await getAsync(event, undefined);
+
+			// Assert
+			expect(decodeOrThrowMock).toHaveBeenCalledWith('cipher-42');
+			expect(getServiceMock).toHaveBeenCalledWith(undefined, { id: 42, projectId: 'proj-1' });
+			expect(encodeOrThrowMock).toHaveBeenCalledWith(42);
+			expect(result.id).toBe('cipher-42');
+			expect(result.stepTree).toBeNull();
+		});
+
+		it('projectId 헤더가 없으면 InvalidArgumentException을 throw하고 service를 호출하지 않는다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'getWorkflow',
+				pathParameters: { workflowId: 'cipher-1' },
+			};
+
+			// Act & Assert
+			await expect(getAsync(event, undefined)).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(getServiceMock).not.toHaveBeenCalled();
+		});
+
+		it('workflowId가 없으면 InvalidArgumentException을 throw하고 service를 호출하지 않는다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'getWorkflow',
+				headers: { projectId: 'proj-1' },
+			};
+
+			// Act & Assert
+			await expect(getAsync(event, undefined)).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(getServiceMock).not.toHaveBeenCalled();
 		});
 	});
 });
