@@ -25,6 +25,17 @@ const updateRepositoryMock =
 	jest.fn<
 		(id: number, patch: UpdateWorkflowEntity, conn: unknown) => Promise<{ affectedRows: number }>
 	>();
+const listAllRelationsRepositoryMock =
+	jest.fn<(conn?: unknown) => Promise<Array<{ frontSchemaId: number; rearSchemaId: number }>>>();
+const listSchemasByIdsRepositoryMock =
+	jest.fn<
+		(
+			ids: number[],
+			conn?: unknown,
+		) => Promise<
+			Array<{ id: number; name: string; type: string; condition: string; isHidden: boolean }>
+		>
+	>();
 const executeQueryWithTransactionMock =
 	jest.fn<(transaction: (tx: unknown) => Promise<unknown>) => Promise<unknown>>();
 
@@ -34,6 +45,11 @@ jest.unstable_mockModule('../../src/infrastructure/repository/workflow.repositor
 	listStepsByWorkflowAsync: listStepsRepositoryMock,
 	listAsync: listRepositoryMock,
 	updateAsync: updateRepositoryMock,
+}));
+
+jest.unstable_mockModule('../../src/infrastructure/repository/step-schema.repository', () => ({
+	listAllRelationsAsync: listAllRelationsRepositoryMock,
+	listSchemasByIdsAsync: listSchemasByIdsRepositoryMock,
 }));
 
 jest.unstable_mockModule('../../src/infrastructure/repository/db', () => ({
@@ -293,24 +309,45 @@ describe('workflow.service', () => {
 
 	describe('updateAsync', () => {
 		const fakeTx = { tag: 'tx' };
-		const endLeafRow: StepWithSchemaRow = {
-			id: 'leaf',
-			parentId: null,
-			position: 0,
-			condition: '{}',
-			schemaId: 9,
-			schemaName: 'END',
-			schemaType: 'END',
-			schemaIsHidden: true,
-		};
+		const validTreeRows: StepWithSchemaRow[] = [
+			{
+				id: 'root',
+				parentId: null,
+				position: 0,
+				condition: '{}',
+				schemaId: 1,
+				schemaName: 'START',
+				schemaType: 'START',
+				schemaIsHidden: true,
+			},
+			{
+				id: 'tail',
+				parentId: 'root',
+				position: 0,
+				condition: '{}',
+				schemaId: 2,
+				schemaName: 'END',
+				schemaType: 'END',
+				schemaIsHidden: true,
+			},
+		];
+		const validRelations = [{ frontSchemaId: 1, rearSchemaId: 2 }];
+		const validSchemas = [
+			{ id: 1, name: 'START', type: 'START', condition: '{}', isHidden: true },
+			{ id: 2, name: 'END', type: 'END', condition: '{}', isHidden: true },
+		];
 
 		beforeEach(() => {
 			getRepositoryMock.mockReset();
 			listStepsRepositoryMock.mockReset();
 			updateRepositoryMock.mockReset();
+			listAllRelationsRepositoryMock.mockReset();
+			listSchemasByIdsRepositoryMock.mockReset();
 			executeQueryWithTransactionMock.mockReset();
 			executeQueryWithTransactionMock.mockImplementation(async (fn) => fn(fakeTx));
 			updateRepositoryMock.mockResolvedValue({ affectedRows: 1 });
+			listAllRelationsRepositoryMock.mockResolvedValue(validRelations);
+			listSchemasByIdsRepositoryMock.mockResolvedValue(validSchemas);
 		});
 
 		it('name만 수정(status 미입력) 시 listSteps 미호출, repo.updateAsync 호출 후 null 반환', async () => {
@@ -330,10 +367,10 @@ describe('workflow.service', () => {
 			expect(updateRepositoryMock).toHaveBeenCalledWith(42, { name: 'updated' }, fakeTx);
 		});
 
-		it('DRAFT→ACTIVE + 트리 모든 leaf=END면 update 성공', async () => {
+		it('DRAFT→ACTIVE + 유효 트리(START→END) + relations/conditions 통과 시 update 성공', async () => {
 			// Arrange
 			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
-			listStepsRepositoryMock.mockResolvedValue([endLeafRow]);
+			listStepsRepositoryMock.mockResolvedValue(validTreeRows);
 
 			// Act
 			const result = await updateAsync(undefined, {
@@ -345,7 +382,51 @@ describe('workflow.service', () => {
 			// Assert
 			expect(result).toBeNull();
 			expect(listStepsRepositoryMock).toHaveBeenCalledWith(42, fakeTx);
+			expect(listAllRelationsRepositoryMock).toHaveBeenCalledWith(fakeTx);
+			expect(listSchemasByIdsRepositoryMock).toHaveBeenCalledWith(
+				expect.arrayContaining([1, 2]),
+				fakeTx,
+			);
 			expect(updateRepositoryMock).toHaveBeenCalledWith(42, { status: 'ACTIVE' }, fakeTx);
+		});
+
+		it('DRAFT→ACTIVE + relations에 엣지 누락이면 InvalidArgumentException, update 미호출', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
+			listStepsRepositoryMock.mockResolvedValue(validTreeRows);
+			listAllRelationsRepositoryMock.mockResolvedValue([]); // 1->2 누락
+
+			// Act & Assert
+			await expect(
+				updateAsync(undefined, { id: 42, projectId: 'proj-1', data: { status: 'ACTIVE' } }),
+			).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(updateRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('DRAFT→ACTIVE + condition required 위반이면 InvalidArgumentException, update 미호출', async () => {
+			// Arrange — END schema가 'foo' 필수인데 step.condition은 빈 객체
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
+			listStepsRepositoryMock.mockResolvedValue(validTreeRows);
+			listSchemasByIdsRepositoryMock.mockResolvedValue([
+				{ id: 1, name: 'START', type: 'START', condition: '{}', isHidden: true },
+				{
+					id: 2,
+					name: 'END',
+					type: 'END',
+					condition: JSON.stringify({
+						type: 'object',
+						required: ['foo'],
+						properties: { foo: { type: 'string' } },
+					}),
+					isHidden: true,
+				},
+			]);
+
+			// Act & Assert
+			await expect(
+				updateAsync(undefined, { id: 42, projectId: 'proj-1', data: { status: 'ACTIVE' } }),
+			).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(updateRepositoryMock).not.toHaveBeenCalled();
 		});
 
 		it('DRAFT→ACTIVE + 빈 트리면 InvalidArgumentException', async () => {

@@ -1,7 +1,9 @@
 import { paginate, type PaginatedResult } from '../core/token-based-pagination';
 import { ResourceNotFoundException, UncaughtException } from '../domain/exception';
 import { buildStepTree } from '../domain/helper/build-step-tree';
+import { assertStepTreeConditions } from '../domain/helper/validate-step-tree-conditions';
 import { assertStepTreeIntegrity } from '../domain/helper/validate-step-tree-integrity';
+import { assertStepTreeRelations } from '../domain/helper/validate-step-tree-relations';
 import { assertStatusTransitionAllowed } from '../domain/strategy/workflow-status-transition';
 import type { WorkflowStep } from '../domain/type/workflow-step.model';
 import type {
@@ -12,6 +14,7 @@ import type {
 } from '../domain/type/workflow.dao';
 import type { Workflow, WorkflowStatus, WorkflowSummary } from '../domain/type/workflow.model';
 import { drizzleClient, type Connection } from '../infrastructure/repository/db';
+import * as stepSchemaRepository from '../infrastructure/repository/step-schema.repository';
 import * as workflowRepository from '../infrastructure/repository/workflow.repository';
 import type { WorkflowRow } from '../infrastructure/repository/workflow.repository';
 
@@ -85,7 +88,17 @@ export const updateAsync = async (
 			const isLeavingDraft = current === 'DRAFT' && data.status !== 'DRAFT';
 			if (isLeavingDraft) {
 				const stepRows = await workflowRepository.listStepsByWorkflowAsync(id, tx);
-				assertStepTreeIntegrity(buildStepTree(stepRows));
+				const tree = buildStepTree(stepRows);
+				assertStepTreeIntegrity(tree);
+				if (tree !== null) {
+					const schemaIds = collectSchemaIds(tree);
+					const [relations, schemas] = await Promise.all([
+						stepSchemaRepository.listAllRelationsAsync(tx),
+						stepSchemaRepository.listSchemasByIdsAsync(schemaIds, tx),
+					]);
+					assertStepTreeRelations(tree, relations);
+					assertStepTreeConditions(tree, schemas);
+				}
 			}
 		}
 
@@ -95,6 +108,18 @@ export const updateAsync = async (
 		}
 		return null;
 	});
+};
+
+const collectSchemaIds = (root: WorkflowStep): number[] => {
+	const ids = new Set<number>();
+	const visit = (node: WorkflowStep): void => {
+		ids.add(node.schema.id);
+		for (const child of node.children) {
+			visit(child);
+		}
+	};
+	visit(root);
+	return Array.from(ids);
 };
 
 const toWorkflow = (row: WorkflowRow, stepTree: WorkflowStep | null): Workflow => ({
