@@ -1,5 +1,12 @@
 import { z } from 'zod';
 
+import type { WorkflowStatus } from '../../domain/type/workflow.model';
+
+const workflowStatusEnum = z.enum(['DRAFT', 'ACTIVE', 'INACTIVE'] as const satisfies readonly [
+	WorkflowStatus,
+	...WorkflowStatus[],
+]);
+
 export const createWorkflowSchema = z
 	.object({
 		function: z.literal('createWorkflow'),
@@ -30,9 +37,36 @@ export const listWorkflowsSchema = z
 					.transform((v) => Number(v))
 					.pipe(z.number().int().positive().max(200))
 					.optional(),
-				status: z.enum(['INACTIVE', 'ACTIVE', 'DRAFT']).optional(),
+				status: workflowStatusEnum.optional(),
 			})
 			.partial()
 			.optional(),
+	})
+	.passthrough();
+
+const updateWorkflowDataSchema = z
+	.object({
+		name: z.string().trim().min(1).max(100).optional(),
+		description: z
+			.string()
+			.max(1024)
+			.transform((s) => {
+				const t = s.trim();
+				return t === '' ? null : t;
+			})
+			.optional(),
+		status: workflowStatusEnum.optional(),
+	})
+	.refine((d) => d.name !== undefined || d.description !== undefined || d.status !== undefined, {
+		message: 'at least one of name|description|status is required',
+	});
+
+export const updateWorkflowSchema = z
+	.object({
+		function: z.literal('updateWorkflow'),
+		pathParameters: z.object({
+			workflowId: z.string().min(1),
+		}),
+		data: updateWorkflowDataSchema,
 	})
 	.passthrough();

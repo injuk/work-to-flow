@@ -36,3 +36,19 @@ export interface GetWorkflowEvent extends BaseEvent {
 }
 
 export type GetWorkflowResponse = PublicModel<Workflow>;
+
+export interface UpdateWorkflowEventData {
+	name?: string;
+	description?: string | null;
+	status?: WorkflowStatus;
+}
+
+export interface UpdateWorkflowEvent extends BaseEvent {
+	function: 'updateWorkflow';
+	pathParameters?: {
+		workflowId?: string;
+	};
+	data: UpdateWorkflowEventData;
+}
+
+export type UpdateWorkflowResponse = null;

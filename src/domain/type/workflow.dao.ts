@@ -16,3 +16,15 @@ export interface GetWorkflowConditions {
 	id: number;
 	projectId: string;
 }
+
+export interface UpdateWorkflowEntity {
+	name?: string;
+	description?: string | null;
+	status?: WorkflowStatus;
+}
+
+export interface UpdateWorkflowConditions {
+	id: number;
+	projectId: string;
+	data: UpdateWorkflowEntity;
+}

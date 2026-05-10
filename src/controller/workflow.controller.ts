@@ -10,6 +10,8 @@ import type {
 	GetWorkflowResponse,
 	ListWorkflowsEvent,
 	ListWorkflowsResponse,
+	UpdateWorkflowEvent,
+	UpdateWorkflowResponse,
 } from './dto/workflow.dto';
 
 const SYSTEM_USER_ID = 'System';
@@ -65,4 +67,21 @@ export const getAsync = async (
 	const workflow = await workflowService.getAsync(undefined, { id, projectId });
 
 	return { ...workflow, id: encodeOrThrow(workflow.id) };
+};
+
+export const updateAsync = async (
+	event: BaseEvent,
+	_context: unknown,
+): Promise<UpdateWorkflowResponse> => {
+	const e = event as UpdateWorkflowEvent;
+	const projectId = requireProjectId(event);
+	const rawId = e.pathParameters?.workflowId;
+	if (!rawId) {
+		throw new InvalidArgumentException('workflowId is required');
+	}
+	const id = decodeOrThrow(rawId);
+
+	await workflowService.updateAsync(undefined, { id, projectId, data: e.data });
+
+	return null;
 };

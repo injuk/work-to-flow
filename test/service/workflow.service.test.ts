@@ -1,9 +1,14 @@
 import { beforeEach, describe, expect, it, jest } from '@jest/globals';
 
-import { ResourceNotFoundException, UncaughtException } from '../../src/domain/exception';
+import {
+	InvalidArgumentException,
+	ResourceNotFoundException,
+	UncaughtException,
+} from '../../src/domain/exception';
 import type {
 	CreateWorkflowEntity,
 	ListWorkflowsConditions,
+	UpdateWorkflowEntity,
 } from '../../src/domain/type/workflow.dao';
 import type {
 	StepWithSchemaRow,
@@ -12,9 +17,14 @@ import type {
 
 const createRepositoryMock =
 	jest.fn<(entity: CreateWorkflowEntity, conn: unknown) => Promise<number>>();
-const getRepositoryMock = jest.fn<(id: number) => Promise<WorkflowRow | null>>();
-const listStepsRepositoryMock = jest.fn<(workflowId: number) => Promise<StepWithSchemaRow[]>>();
+const getRepositoryMock = jest.fn<(id: number, conn?: unknown) => Promise<WorkflowRow | null>>();
+const listStepsRepositoryMock =
+	jest.fn<(workflowId: number, conn?: unknown) => Promise<StepWithSchemaRow[]>>();
 const listRepositoryMock = jest.fn<(search: Record<string, unknown>) => Promise<WorkflowRow[]>>();
+const updateRepositoryMock =
+	jest.fn<
+		(id: number, patch: UpdateWorkflowEntity, conn: unknown) => Promise<{ affectedRows: number }>
+	>();
 const executeQueryWithTransactionMock =
 	jest.fn<(transaction: (tx: unknown) => Promise<unknown>) => Promise<unknown>>();
 
@@ -23,6 +33,7 @@ jest.unstable_mockModule('../../src/infrastructure/repository/workflow.repositor
 	getAsync: getRepositoryMock,
 	listStepsByWorkflowAsync: listStepsRepositoryMock,
 	listAsync: listRepositoryMock,
+	updateAsync: updateRepositoryMock,
 }));
 
 jest.unstable_mockModule('../../src/infrastructure/repository/db', () => ({
@@ -32,7 +43,8 @@ jest.unstable_mockModule('../../src/infrastructure/repository/db', () => ({
 	},
 }));
 
-const { createAsync, getAsync, listAsync } = await import('../../src/service/workflow.service');
+const { createAsync, getAsync, listAsync, updateAsync } =
+	await import('../../src/service/workflow.service');
 
 const buildEntity = (): CreateWorkflowEntity => ({
 	projectId: 'proj-1',
@@ -276,6 +288,188 @@ describe('workflow.service', () => {
 					limit: 6,
 				}),
 			);
+		});
+	});
+
+	describe('updateAsync', () => {
+		const fakeTx = { tag: 'tx' };
+		const endLeafRow: StepWithSchemaRow = {
+			id: 'leaf',
+			parentId: null,
+			position: 0,
+			condition: '{}',
+			schemaId: 9,
+			schemaName: 'END',
+			schemaType: 'END',
+			schemaIsHidden: true,
+		};
+
+		beforeEach(() => {
+			getRepositoryMock.mockReset();
+			listStepsRepositoryMock.mockReset();
+			updateRepositoryMock.mockReset();
+			executeQueryWithTransactionMock.mockReset();
+			executeQueryWithTransactionMock.mockImplementation(async (fn) => fn(fakeTx));
+			updateRepositoryMock.mockResolvedValue({ affectedRows: 1 });
+		});
+
+		it('name만 수정(status 미입력) 시 listSteps 미호출, repo.updateAsync 호출 후 null 반환', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
+
+			// Act
+			const result = await updateAsync(undefined, {
+				id: 42,
+				projectId: 'proj-1',
+				data: { name: 'updated' },
+			});
+
+			// Assert
+			expect(result).toBeNull();
+			expect(listStepsRepositoryMock).not.toHaveBeenCalled();
+			expect(updateRepositoryMock).toHaveBeenCalledWith(42, { name: 'updated' }, fakeTx);
+		});
+
+		it('DRAFT→ACTIVE + 트리 모든 leaf=END면 update 성공', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
+			listStepsRepositoryMock.mockResolvedValue([endLeafRow]);
+
+			// Act
+			const result = await updateAsync(undefined, {
+				id: 42,
+				projectId: 'proj-1',
+				data: { status: 'ACTIVE' },
+			});
+
+			// Assert
+			expect(result).toBeNull();
+			expect(listStepsRepositoryMock).toHaveBeenCalledWith(42, fakeTx);
+			expect(updateRepositoryMock).toHaveBeenCalledWith(42, { status: 'ACTIVE' }, fakeTx);
+		});
+
+		it('DRAFT→ACTIVE + 빈 트리면 InvalidArgumentException', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
+			listStepsRepositoryMock.mockResolvedValue([]);
+
+			// Act & Assert
+			await expect(
+				updateAsync(undefined, { id: 42, projectId: 'proj-1', data: { status: 'ACTIVE' } }),
+			).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(updateRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('DRAFT→ACTIVE + leaf 중 SYNC_TASK 혼재면 InvalidArgumentException', async () => {
+			// Arrange — START → SYNC_TASK(leaf, 잘못)
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
+			listStepsRepositoryMock.mockResolvedValue([
+				{
+					id: 'root',
+					parentId: null,
+					position: 0,
+					condition: '{}',
+					schemaId: 1,
+					schemaName: 'START',
+					schemaType: 'START',
+					schemaIsHidden: true,
+				},
+				{
+					id: 'task',
+					parentId: 'root',
+					position: 0,
+					condition: '{}',
+					schemaId: 7,
+					schemaName: 'SYNC_TASK',
+					schemaType: 'SYNC_TASK',
+					schemaIsHidden: false,
+				},
+			]);
+
+			// Act & Assert
+			await expect(
+				updateAsync(undefined, { id: 42, projectId: 'proj-1', data: { status: 'ACTIVE' } }),
+			).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(updateRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('ACTIVE→DRAFT 전이는 InvalidArgumentException', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'ACTIVE' }));
+
+			// Act & Assert
+			await expect(
+				updateAsync(undefined, { id: 42, projectId: 'proj-1', data: { status: 'DRAFT' } }),
+			).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(listStepsRepositoryMock).not.toHaveBeenCalled();
+			expect(updateRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('ACTIVE→INACTIVE 전이는 listSteps 미호출, update 성공', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'ACTIVE' }));
+
+			// Act
+			const result = await updateAsync(undefined, {
+				id: 42,
+				projectId: 'proj-1',
+				data: { status: 'INACTIVE' },
+			});
+
+			// Assert
+			expect(result).toBeNull();
+			expect(listStepsRepositoryMock).not.toHaveBeenCalled();
+			expect(updateRepositoryMock).toHaveBeenCalledWith(42, { status: 'INACTIVE' }, fakeTx);
+		});
+
+		it('미존재 workflow면 ResourceNotFoundException', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(null);
+
+			// Act & Assert
+			await expect(
+				updateAsync(undefined, { id: 99, projectId: 'proj-1', data: { name: 'x' } }),
+			).rejects.toBeInstanceOf(ResourceNotFoundException);
+			expect(updateRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('다른 projectId면 ResourceNotFoundException (정보 누설 방지)', async () => {
+			// Arrange — row는 proj-1, 호출은 proj-2
+			getRepositoryMock.mockResolvedValue(buildRow(42, { ProjectId: 'proj-1' }));
+
+			// Act & Assert
+			await expect(
+				updateAsync(undefined, { id: 42, projectId: 'proj-2', data: { name: 'x' } }),
+			).rejects.toBeInstanceOf(ResourceNotFoundException);
+			expect(updateRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('DRAFT→DRAFT (no-op) — listSteps 미호출, update 호출, 성공', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
+
+			// Act
+			const result = await updateAsync(undefined, {
+				id: 42,
+				projectId: 'proj-1',
+				data: { status: 'DRAFT' },
+			});
+
+			// Assert
+			expect(result).toBeNull();
+			expect(listStepsRepositoryMock).not.toHaveBeenCalled();
+			expect(updateRepositoryMock).toHaveBeenCalledWith(42, { status: 'DRAFT' }, fakeTx);
+		});
+
+		it('repo.updateAsync.affectedRows=0이면 UncaughtException', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42, { Status: 'DRAFT' }));
+			updateRepositoryMock.mockResolvedValue({ affectedRows: 0 });
+
+			// Act & Assert
+			await expect(
+				updateAsync(undefined, { id: 42, projectId: 'proj-1', data: { name: 'x' } }),
+			).rejects.toBeInstanceOf(UncaughtException);
 		});
 	});
 });

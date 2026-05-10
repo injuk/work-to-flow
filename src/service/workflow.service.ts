@@ -1,11 +1,14 @@
 import { paginate, type PaginatedResult } from '../core/token-based-pagination';
 import { ResourceNotFoundException, UncaughtException } from '../domain/exception';
 import { buildStepTree } from '../domain/helper/build-step-tree';
+import { assertStepTreeIntegrity } from '../domain/helper/validate-step-tree-integrity';
+import { assertStatusTransitionAllowed } from '../domain/strategy/workflow-status-transition';
 import type { WorkflowStep } from '../domain/type/workflow-step.model';
 import type {
 	CreateWorkflowEntity,
 	GetWorkflowConditions,
 	ListWorkflowsConditions,
+	UpdateWorkflowConditions,
 } from '../domain/type/workflow.dao';
 import type { Workflow, WorkflowStatus, WorkflowSummary } from '../domain/type/workflow.model';
 import { drizzleClient, type Connection } from '../infrastructure/repository/db';
@@ -62,6 +65,36 @@ export const getAsync = async (
 	const stepTree = buildStepTree(stepRows);
 
 	return toWorkflow(row, stepTree);
+};
+
+export const updateAsync = async (
+	_requestContext: unknown,
+	domainContext: UpdateWorkflowConditions,
+): Promise<null> => {
+	const { id, projectId, data } = domainContext;
+
+	return drizzleClient.executeQueryWithTransaction(async (tx) => {
+		const row = await workflowRepository.getAsync(id, tx);
+		if (!row || row.ProjectId !== projectId) {
+			throw new ResourceNotFoundException(`Workflow(${id}) could not be found`);
+		}
+
+		if (data.status !== undefined) {
+			const current = row.Status as WorkflowStatus;
+			assertStatusTransitionAllowed(current, data.status);
+			const isLeavingDraft = current === 'DRAFT' && data.status !== 'DRAFT';
+			if (isLeavingDraft) {
+				const stepRows = await workflowRepository.listStepsByWorkflowAsync(id, tx);
+				assertStepTreeIntegrity(buildStepTree(stepRows));
+			}
+		}
+
+		const result = await workflowRepository.updateAsync(id, data, tx);
+		if (result.affectedRows === 0) {
+			throw new UncaughtException(`failed to update Workflow(${id})`);
+		}
+		return null;
+	});
 };
 
 const toWorkflow = (row: WorkflowRow, stepTree: WorkflowStep | null): Workflow => ({

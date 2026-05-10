@@ -1,7 +1,11 @@
 import { and, desc, eq } from 'drizzle-orm';
 
 import { drizzleClient, schema, type Connection } from './db';
-import type { CreateWorkflowEntity, ListWorkflowsConditions } from '../../domain/type/workflow.dao';
+import type {
+	CreateWorkflowEntity,
+	ListWorkflowsConditions,
+	UpdateWorkflowEntity,
+} from '../../domain/type/workflow.dao';
 
 const { Workflows, WorkflowSteps, WorkflowStepSchemas } = schema;
 
@@ -87,5 +91,21 @@ export const listAsync = async (
 			.orderBy(desc(Workflows.CreatedAt))
 			.limit(search.limit)
 			.offset(search.offset);
+	}, connection);
+};
+
+export const updateAsync = async (
+	id: number,
+	patch: UpdateWorkflowEntity,
+	connection: Connection | null = null,
+): Promise<{ affectedRows: number }> => {
+	return drizzleClient.executeQuery(async (client) => {
+		const set: Record<string, unknown> = { UpdatedAt: new Date() };
+		if (patch.name !== undefined) set.Name = patch.name;
+		if (patch.description !== undefined) set.Description = patch.description;
+		if (patch.status !== undefined) set.Status = patch.status;
+
+		const [header] = await client.update(Workflows).set(set).where(eq(Workflows.Id, id));
+		return { affectedRows: header.affectedRows };
 	}, connection);
 };

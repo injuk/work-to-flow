@@ -116,4 +116,47 @@ describe('playground', () => {
 			username: 'System',
 		});
 	});
+
+	it('updateWorkflow가 DRAFT 워크플로우의 name을 갱신하고 후속 getWorkflow에서 변경이 보인다', async () => {
+		// Arrange — 단건 INSERT
+		const projectId = `playground-update-${Date.now()}`;
+		const created = (await handler(
+			{
+				function: 'createWorkflow',
+				data: { name: 'before', description: 'before-desc' },
+				headers: { projectId },
+			},
+			{},
+		)) as { id: string };
+
+		// Act — name PATCH
+		const updateResult = await handler(
+			{
+				function: 'updateWorkflow',
+				headers: { projectId },
+				pathParameters: { workflowId: created.id },
+				data: { name: 'after' },
+			},
+			{},
+		);
+
+		// Assert — 204 시맨틱 (null 반환)
+		expect(updateResult).toBeNull();
+
+		// Act — 변경 확인
+		const detail = (await handler(
+			{
+				function: 'getWorkflow',
+				headers: { projectId },
+				pathParameters: { workflowId: created.id },
+			},
+			{},
+		)) as GetWorkflowResponse;
+
+		// Assert
+		expect(detail.id).toBe(created.id);
+		expect(detail.name).toBe('after');
+		expect(detail.description).toBe('before-desc');
+		expect(detail.status).toBe('DRAFT');
+	});
 });
