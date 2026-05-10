@@ -52,3 +52,12 @@ export interface UpdateWorkflowEvent extends BaseEvent {
 }
 
 export type UpdateWorkflowResponse = null;
+
+export interface DeleteWorkflowEvent extends BaseEvent {
+	function: 'deleteWorkflow';
+	pathParameters?: {
+		workflowId?: string;
+	};
+}
+
+export type DeleteWorkflowResponse = null;

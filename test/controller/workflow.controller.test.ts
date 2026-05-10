@@ -5,6 +5,7 @@ import type { PaginatedResult } from '../../src/core/token-based-pagination';
 import { InvalidArgumentException } from '../../src/domain/exception';
 import type {
 	CreateWorkflowEntity,
+	DeleteWorkflowConditions,
 	GetWorkflowConditions,
 	ListWorkflowsConditions,
 	UpdateWorkflowConditions,
@@ -26,6 +27,8 @@ const listServiceMock =
 	>();
 const updateServiceMock =
 	jest.fn<(ctx: unknown, conditions: UpdateWorkflowConditions) => Promise<null>>();
+const deleteServiceMock =
+	jest.fn<(ctx: unknown, conditions: DeleteWorkflowConditions) => Promise<null>>();
 const encodeOrThrowMock = jest.fn<(plain: number) => string>();
 const decodeOrThrowMock = jest.fn<(cipher: string) => number>();
 
@@ -34,6 +37,7 @@ jest.unstable_mockModule('../../src/service/workflow.service', () => ({
 	getAsync: getServiceMock,
 	listAsync: listServiceMock,
 	updateAsync: updateServiceMock,
+	deleteAsync: deleteServiceMock,
 }));
 
 jest.unstable_mockModule('../../src/util/hashId', () => ({
@@ -41,7 +45,7 @@ jest.unstable_mockModule('../../src/util/hashId', () => ({
 	decodeOrThrow: decodeOrThrowMock,
 }));
 
-const { createAsync, getAsync, listAsync, updateAsync } =
+const { createAsync, deleteAsync, getAsync, listAsync, updateAsync } =
 	await import('../../src/controller/workflow.controller');
 
 const buildSummary = (id: number): WorkflowSummary => ({
@@ -279,6 +283,73 @@ describe('workflow.controller', () => {
 			// Act & Assert
 			await expect(updateAsync(event, undefined)).rejects.toBeInstanceOf(InvalidArgumentException);
 			expect(updateServiceMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('deleteAsync', () => {
+		beforeEach(() => {
+			deleteServiceMock.mockReset();
+			decodeOrThrowMock.mockReset();
+		});
+
+		it('workflowId 디코드 후 service에 {id, projectId} 전달하고 null을 반환한다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'deleteWorkflow',
+				headers: { projectId: 'proj-1' },
+				pathParameters: { workflowId: 'cipher-42' },
+			};
+			decodeOrThrowMock.mockReturnValue(42);
+			deleteServiceMock.mockResolvedValue(null);
+
+			// Act
+			const result = await deleteAsync(event, undefined);
+
+			// Assert
+			expect(result).toBeNull();
+			expect(decodeOrThrowMock).toHaveBeenCalledWith('cipher-42');
+			expect(deleteServiceMock).toHaveBeenCalledWith(undefined, { id: 42, projectId: 'proj-1' });
+		});
+
+		it('projectId 헤더가 없으면 InvalidArgumentException을 throw하고 service를 호출하지 않는다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'deleteWorkflow',
+				pathParameters: { workflowId: 'cipher-1' },
+			};
+
+			// Act & Assert
+			await expect(deleteAsync(event, undefined)).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(deleteServiceMock).not.toHaveBeenCalled();
+		});
+
+		it('workflowId가 없으면 InvalidArgumentException을 throw하고 service를 호출하지 않는다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'deleteWorkflow',
+				headers: { projectId: 'proj-1' },
+			};
+
+			// Act & Assert
+			await expect(deleteAsync(event, undefined)).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(decodeOrThrowMock).not.toHaveBeenCalled();
+			expect(deleteServiceMock).not.toHaveBeenCalled();
+		});
+
+		it('decodeOrThrow가 throw하면 그대로 전파되고 service는 호출되지 않는다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'deleteWorkflow',
+				headers: { projectId: 'proj-1' },
+				pathParameters: { workflowId: 'invalid' },
+			};
+			decodeOrThrowMock.mockImplementation(() => {
+				throw new InvalidArgumentException('bad cipher');
+			});
+
+			// Act & Assert
+			await expect(deleteAsync(event, undefined)).rejects.toBeInstanceOf(InvalidArgumentException);
+			expect(deleteServiceMock).not.toHaveBeenCalled();
 		});
 	});
 });

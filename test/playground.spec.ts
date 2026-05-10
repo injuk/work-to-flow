@@ -1,4 +1,5 @@
 import { handler } from '../src/route';
+import { ResourceNotFoundException } from '../src/domain/exception';
 import { db } from '../src/infrastructure/repository/db';
 import type {
 	GetWorkflowResponse,
@@ -158,5 +159,43 @@ describe('playground', () => {
 		expect(detail.name).toBe('after');
 		expect(detail.description).toBe('before-desc');
 		expect(detail.status).toBe('DRAFT');
+	});
+
+	it('deleteWorkflow 후 getWorkflow는 ResourceNotFoundException을 throw한다', async () => {
+		// Arrange — 단건 INSERT
+		const projectId = `playground-delete-${Date.now()}`;
+		const created = (await handler(
+			{
+				function: 'createWorkflow',
+				data: { name: 'delete-target' },
+				headers: { projectId },
+			},
+			{},
+		)) as { id: string };
+
+		// Act — DELETE
+		const deleteResult = await handler(
+			{
+				function: 'deleteWorkflow',
+				headers: { projectId },
+				pathParameters: { workflowId: created.id },
+			},
+			{},
+		);
+
+		// Assert — 204 시맨틱
+		expect(deleteResult).toBeNull();
+
+		// Act & Assert — 삭제 후 조회는 404
+		await expect(
+			handler(
+				{
+					function: 'getWorkflow',
+					headers: { projectId },
+					pathParameters: { workflowId: created.id },
+				},
+				{},
+			),
+		).rejects.toBeInstanceOf(ResourceNotFoundException);
 	});
 });

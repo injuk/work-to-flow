@@ -2,6 +2,7 @@ import type { z } from 'zod';
 
 import {
 	createWorkflowSchema,
+	deleteWorkflowSchema,
 	getWorkflowSchema,
 	listWorkflowsSchema,
 	updateWorkflowSchema,
@@ -13,6 +14,7 @@ const schemas: Record<string, z.ZodTypeAny> = {
 	listWorkflows: listWorkflowsSchema,
 	getWorkflow: getWorkflowSchema,
 	updateWorkflow: updateWorkflowSchema,
+	deleteWorkflow: deleteWorkflowSchema,
 };
 
 export default class Validator {

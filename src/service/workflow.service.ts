@@ -8,6 +8,7 @@ import { assertStatusTransitionAllowed } from '../domain/strategy/workflow-statu
 import type { WorkflowStep } from '../domain/type/workflow-step.model';
 import type {
 	CreateWorkflowEntity,
+	DeleteWorkflowConditions,
 	GetWorkflowConditions,
 	ListWorkflowsConditions,
 	UpdateWorkflowConditions,
@@ -105,6 +106,26 @@ export const updateAsync = async (
 		const result = await workflowRepository.updateAsync(id, data, tx);
 		if (result.affectedRows === 0) {
 			throw new UncaughtException(`failed to update Workflow(${id})`);
+		}
+		return null;
+	});
+};
+
+export const deleteAsync = async (
+	_requestContext: unknown,
+	domainContext: DeleteWorkflowConditions,
+): Promise<null> => {
+	const { id, projectId } = domainContext;
+
+	return drizzleClient.executeQueryWithTransaction(async (tx) => {
+		const row = await workflowRepository.getAsync(id, tx);
+		if (!row || row.ProjectId !== projectId) {
+			throw new ResourceNotFoundException(`Workflow(${id}) could not be found`);
+		}
+
+		const result = await workflowRepository.deleteAsync(id, tx);
+		if (result.affectedRows === 0) {
+			throw new UncaughtException(`failed to delete Workflow(${id})`);
 		}
 		return null;
 	});

@@ -25,6 +25,8 @@ const updateRepositoryMock =
 	jest.fn<
 		(id: number, patch: UpdateWorkflowEntity, conn: unknown) => Promise<{ affectedRows: number }>
 	>();
+const deleteRepositoryMock =
+	jest.fn<(id: number, conn: unknown) => Promise<{ affectedRows: number }>>();
 const listAllRelationsRepositoryMock =
 	jest.fn<(conn?: unknown) => Promise<Array<{ frontSchemaId: number; rearSchemaId: number }>>>();
 const listSchemasByIdsRepositoryMock =
@@ -45,6 +47,7 @@ jest.unstable_mockModule('../../src/infrastructure/repository/workflow.repositor
 	listStepsByWorkflowAsync: listStepsRepositoryMock,
 	listAsync: listRepositoryMock,
 	updateAsync: updateRepositoryMock,
+	deleteAsync: deleteRepositoryMock,
 }));
 
 jest.unstable_mockModule('../../src/infrastructure/repository/step-schema.repository', () => ({
@@ -59,7 +62,7 @@ jest.unstable_mockModule('../../src/infrastructure/repository/db', () => ({
 	},
 }));
 
-const { createAsync, getAsync, listAsync, updateAsync } =
+const { createAsync, deleteAsync, getAsync, listAsync, updateAsync } =
 	await import('../../src/service/workflow.service');
 
 const buildEntity = (): CreateWorkflowEntity => ({
@@ -551,6 +554,76 @@ describe('workflow.service', () => {
 			await expect(
 				updateAsync(undefined, { id: 42, projectId: 'proj-1', data: { name: 'x' } }),
 			).rejects.toBeInstanceOf(UncaughtException);
+		});
+	});
+
+	describe('deleteAsync', () => {
+		const fakeTx = { tag: 'tx' };
+
+		beforeEach(() => {
+			getRepositoryMock.mockReset();
+			deleteRepositoryMock.mockReset();
+			executeQueryWithTransactionMock.mockReset();
+			executeQueryWithTransactionMock.mockImplementation(async (fn) => fn(fakeTx));
+			deleteRepositoryMock.mockResolvedValue({ affectedRows: 1 });
+		});
+
+		it('happy: 존재 + projectId 일치 시 null 반환, repo.deleteAsync가 fakeTx와 함께 호출된다', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42));
+
+			// Act
+			const result = await deleteAsync(undefined, { id: 42, projectId: 'proj-1' });
+
+			// Assert
+			expect(result).toBeNull();
+			expect(executeQueryWithTransactionMock).toHaveBeenCalledTimes(1);
+			expect(deleteRepositoryMock).toHaveBeenCalledWith(42, fakeTx);
+		});
+
+		it('repo.getAsync가 null이면 ResourceNotFoundException, deleteAsync 미호출', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(null);
+
+			// Act & Assert
+			await expect(deleteAsync(undefined, { id: 99, projectId: 'proj-1' })).rejects.toBeInstanceOf(
+				ResourceNotFoundException,
+			);
+			expect(deleteRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('projectId 미스매치면 ResourceNotFoundException, deleteAsync 미호출 (정보 누설 방지)', async () => {
+			// Arrange — row는 proj-1, 호출은 proj-2
+			getRepositoryMock.mockResolvedValue(buildRow(5));
+
+			// Act & Assert
+			await expect(deleteAsync(undefined, { id: 5, projectId: 'proj-2' })).rejects.toBeInstanceOf(
+				ResourceNotFoundException,
+			);
+			expect(deleteRepositoryMock).not.toHaveBeenCalled();
+		});
+
+		it('repo.deleteAsync.affectedRows=0이면 UncaughtException', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42));
+			deleteRepositoryMock.mockResolvedValue({ affectedRows: 0 });
+
+			// Act & Assert
+			await expect(deleteAsync(undefined, { id: 42, projectId: 'proj-1' })).rejects.toBeInstanceOf(
+				UncaughtException,
+			);
+		});
+
+		it('tx 콜백이 받은 connection을 getAsync와 deleteAsync 모두에 전달한다', async () => {
+			// Arrange
+			getRepositoryMock.mockResolvedValue(buildRow(42));
+
+			// Act
+			await deleteAsync(undefined, { id: 42, projectId: 'proj-1' });
+
+			// Assert
+			expect(getRepositoryMock).toHaveBeenCalledWith(42, fakeTx);
+			expect(deleteRepositoryMock).toHaveBeenCalledWith(42, fakeTx);
 		});
 	});
 });

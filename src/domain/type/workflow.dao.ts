@@ -28,3 +28,8 @@ export interface UpdateWorkflowConditions {
 	projectId: string;
 	data: UpdateWorkflowEntity;
 }
+
+export interface DeleteWorkflowConditions {
+	id: number;
+	projectId: string;
+}

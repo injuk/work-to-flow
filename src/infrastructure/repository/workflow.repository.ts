@@ -109,3 +109,13 @@ export const updateAsync = async (
 		return { affectedRows: header.affectedRows };
 	}, connection);
 };
+
+export const deleteAsync = async (
+	id: number,
+	connection: Connection | null = null,
+): Promise<{ affectedRows: number }> => {
+	return drizzleClient.executeQuery(async (client) => {
+		const [header] = await client.delete(Workflows).where(eq(Workflows.Id, id));
+		return { affectedRows: header.affectedRows };
+	}, connection);
+};

@@ -7,6 +7,7 @@ export const routes: Routes = {
 	listWorkflows: workflowController.listAsync,
 	getWorkflow: workflowController.getAsync,
 	updateWorkflow: workflowController.updateAsync,
+	deleteWorkflow: workflowController.deleteAsync,
 };
 
 export const handler = (event: BaseEvent, context: unknown) =>

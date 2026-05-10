@@ -70,3 +70,12 @@ export const updateWorkflowSchema = z
 		data: updateWorkflowDataSchema,
 	})
 	.passthrough();
+
+export const deleteWorkflowSchema = z
+	.object({
+		function: z.literal('deleteWorkflow'),
+		pathParameters: z.object({
+			workflowId: z.string().min(1),
+		}),
+	})
+	.passthrough();

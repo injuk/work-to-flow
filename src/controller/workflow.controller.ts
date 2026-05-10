@@ -6,6 +6,8 @@ import { decodeOrThrow, encodeOrThrow } from '../util/hashId';
 import type {
 	CreateWorkflowEvent,
 	CreateWorkflowResponse,
+	DeleteWorkflowEvent,
+	DeleteWorkflowResponse,
 	GetWorkflowEvent,
 	GetWorkflowResponse,
 	ListWorkflowsEvent,
@@ -82,6 +84,23 @@ export const updateAsync = async (
 	const id = decodeOrThrow(rawId);
 
 	await workflowService.updateAsync(undefined, { id, projectId, data: e.data });
+
+	return null;
+};
+
+export const deleteAsync = async (
+	event: BaseEvent,
+	_context: unknown,
+): Promise<DeleteWorkflowResponse> => {
+	const e = event as DeleteWorkflowEvent;
+	const projectId = requireProjectId(event);
+	const rawId = e.pathParameters?.workflowId;
+	if (!rawId) {
+		throw new InvalidArgumentException('workflowId is required');
+	}
+	const id = decodeOrThrow(rawId);
+
+	await workflowService.deleteAsync(undefined, { id, projectId });
 
 	return null;
 };
