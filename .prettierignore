@@ -1,0 +1,16 @@
+node_modules/
+dist/
+build/
+coverage/
+.nyc_output/
+*.tsbuildinfo
+
+local/
+docs/
+infra/sql/drizzle/
+
+.env
+.env.*
+pnpm-lock.yaml
+package-lock.json
+yarn.lock
