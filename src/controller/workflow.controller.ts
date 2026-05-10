@@ -1,22 +1,24 @@
 import type { BaseEvent } from '../core/lambda.router';
+import { requireProjectId } from '../core/request';
 import * as workflowService from '../service/workflow.service';
+import { encodeOrThrow } from '../util/hashId';
+import type { CreateWorkflowEvent, CreateWorkflowResponse } from './dto/workflow.dto';
 
-interface SimpleCreateEvent extends BaseEvent {
-	function: 'simpleCreate';
-	data?: { name?: string };
-}
+const SYSTEM_USER_ID = 'System';
 
-interface SimpleGetEvent extends BaseEvent {
-	function: 'simpleGet';
-	id: number;
-}
+export const createAsync = async (
+	event: BaseEvent,
+	_context: unknown,
+): Promise<CreateWorkflowResponse> => {
+	const e = event as CreateWorkflowEvent;
+	const projectId = requireProjectId(event);
 
-export const simpleCreateAsync = async (event: BaseEvent, _context: unknown) => {
-	const e = event as SimpleCreateEvent;
-	return workflowService.simpleCreateAsync(undefined, { name: e.data?.name });
-};
+	const { id } = await workflowService.createAsync(undefined, {
+		projectId,
+		name: e.data.name,
+		description: e.data.description,
+		createdById: SYSTEM_USER_ID,
+	});
 
-export const simpleGetAsync = async (event: BaseEvent, _context: unknown) => {
-	const e = event as SimpleGetEvent;
-	return workflowService.simpleGetAsync(undefined, { id: e.id });
+	return { id: encodeOrThrow(id) };
 };

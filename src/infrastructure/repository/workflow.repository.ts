@@ -1,24 +1,23 @@
 import { eq } from 'drizzle-orm';
 
 import { drizzleClient, schema, type Connection } from './db';
+import type { CreateWorkflowEntity } from '../../domain/type/workflow.dao';
 
 const { Workflows } = schema;
 
 export type WorkflowRow = typeof Workflows.$inferSelect;
-
-export interface CreateWorkflowEntity {
-	ProjectId: string;
-	Name: string;
-	CreatedById: string;
-	Description?: string | null;
-}
 
 export const createAsync = async (
 	entity: CreateWorkflowEntity,
 	connection: Connection | null = null,
 ): Promise<number> => {
 	return drizzleClient.executeQuery(async (client) => {
-		const [header] = await client.insert(Workflows).values(entity);
+		const [header] = await client.insert(Workflows).values({
+			ProjectId: entity.projectId,
+			Name: entity.name,
+			Description: entity.description ?? null,
+			CreatedById: entity.createdById,
+		});
 		return header.insertId;
 	}, connection);
 };

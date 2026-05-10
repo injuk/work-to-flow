@@ -1,33 +1,18 @@
-import { ResourceNotFoundException } from '../domain/exception';
+import { UncaughtException } from '../domain/exception';
+import type { CreateWorkflowEntity } from '../domain/type/workflow.dao';
 import { drizzleClient, type Connection } from '../infrastructure/repository/db';
 import * as workflowRepository from '../infrastructure/repository/workflow.repository';
 
-export const simpleCreateAsync = async (
+export const createAsync = async (
 	_requestContext: unknown,
-	domainContext: { name?: string },
+	domainContext: CreateWorkflowEntity,
 	_connection: Connection | null = null,
 ): Promise<{ id: number }> => {
 	return drizzleClient.executeQueryWithTransaction(async (tx) => {
-		const id = await workflowRepository.createAsync(
-			{
-				ProjectId: 'playground',
-				Name: domainContext.name ?? 'playground-workflow',
-				CreatedById: 'playground-user',
-			},
-			tx,
-		);
+		const id = await workflowRepository.createAsync(domainContext, tx);
+		if (!Number.isInteger(id) || id <= 0) {
+			throw new UncaughtException('failed to create Workflow');
+		}
 		return { id };
 	});
-};
-
-export const simpleGetAsync = async (
-	_requestContext: unknown,
-	domainContext: { id: number },
-	connection: Connection | null = null,
-): Promise<workflowRepository.WorkflowRow> => {
-	const row = await workflowRepository.getAsync(domainContext.id, connection);
-	if (!row) {
-		throw new ResourceNotFoundException(`Workflow(${domainContext.id}) not found`);
-	}
-	return row;
 };
