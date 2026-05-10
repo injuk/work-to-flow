@@ -1,3 +1,4 @@
+import type { RequestedStep } from './workflow-step.model';
 import type { WorkflowStatus } from './workflow.model';
 
 export interface CreateWorkflowEntity {
@@ -32,4 +33,10 @@ export interface UpdateWorkflowConditions {
 export interface DeleteWorkflowConditions {
 	id: number;
 	projectId: string;
+}
+
+export interface PutWorkflowStepsConditions {
+	id: number;
+	projectId: string;
+	root: RequestedStep;
 }

@@ -61,3 +61,21 @@ export interface DeleteWorkflowEvent extends BaseEvent {
 }
 
 export type DeleteWorkflowResponse = null;
+
+export interface RequestedStepInput {
+	schemaId: string;
+	condition: Record<string, unknown>;
+	children: RequestedStepInput[];
+}
+
+export interface PutWorkflowStepsEvent extends BaseEvent {
+	function: 'putWorkflowSteps';
+	pathParameters?: {
+		workflowId?: string;
+	};
+	data: {
+		stepTree: RequestedStepInput;
+	};
+}
+
+export type PutWorkflowStepsResponse = null;

@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import type { WorkflowStatus } from '../../domain/type/workflow.model';
+import type { RequestedStepInput } from '../dto/workflow.dto';
 
 const workflowStatusEnum = z.enum(['DRAFT', 'ACTIVE', 'INACTIVE'] as const satisfies readonly [
 	WorkflowStatus,
@@ -76,6 +77,26 @@ export const deleteWorkflowSchema = z
 		function: z.literal('deleteWorkflow'),
 		pathParameters: z.object({
 			workflowId: z.string().min(1),
+		}),
+	})
+	.passthrough();
+
+const requestedStepInputSchema: z.ZodType<RequestedStepInput> = z.lazy(() =>
+	z.object({
+		schemaId: z.string().min(1),
+		condition: z.record(z.string(), z.unknown()),
+		children: z.array(requestedStepInputSchema),
+	}),
+);
+
+export const putWorkflowStepsSchema = z
+	.object({
+		function: z.literal('putWorkflowSteps'),
+		pathParameters: z.object({
+			workflowId: z.string().min(1),
+		}),
+		data: z.object({
+			stepTree: requestedStepInputSchema,
 		}),
 	})
 	.passthrough();

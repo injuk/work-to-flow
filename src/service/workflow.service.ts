@@ -1,21 +1,33 @@
 import { paginate, type PaginatedResult } from '../core/token-based-pagination';
-import { ResourceNotFoundException, UncaughtException } from '../domain/exception';
+import {
+	InvalidArgumentException,
+	ResourceNotFoundException,
+	UncaughtException,
+} from '../domain/exception';
 import { buildStepTree } from '../domain/helper/build-step-tree';
+import { flattenRequestedStepTree } from '../domain/helper/flatten-requested-step-tree';
+import {
+	assertRequestedStepTree,
+	type RequestedStepSchemaSummary,
+} from '../domain/helper/validate-requested-step-tree';
 import { assertStepTreeConditions } from '../domain/helper/validate-step-tree-conditions';
 import { assertStepTreeIntegrity } from '../domain/helper/validate-step-tree-integrity';
 import { assertStepTreeRelations } from '../domain/helper/validate-step-tree-relations';
 import { assertStatusTransitionAllowed } from '../domain/strategy/workflow-status-transition';
-import type { WorkflowStep } from '../domain/type/workflow-step.model';
+import type { WorkflowStepSchemaType } from '../domain/type/workflow-step-schema.model';
+import type { RequestedStep, WorkflowStep } from '../domain/type/workflow-step.model';
 import type {
 	CreateWorkflowEntity,
 	DeleteWorkflowConditions,
 	GetWorkflowConditions,
 	ListWorkflowsConditions,
+	PutWorkflowStepsConditions,
 	UpdateWorkflowConditions,
 } from '../domain/type/workflow.dao';
 import type { Workflow, WorkflowStatus, WorkflowSummary } from '../domain/type/workflow.model';
 import { drizzleClient, type Connection } from '../infrastructure/repository/db';
 import * as stepSchemaRepository from '../infrastructure/repository/step-schema.repository';
+import type { WorkflowStepSchemaRow } from '../infrastructure/repository/step-schema.repository';
 import * as workflowRepository from '../infrastructure/repository/workflow.repository';
 import type { WorkflowRow } from '../infrastructure/repository/workflow.repository';
 
@@ -130,6 +142,60 @@ export const deleteAsync = async (
 		return null;
 	});
 };
+
+export const putStepsAsync = async (
+	_requestContext: unknown,
+	domainContext: PutWorkflowStepsConditions,
+): Promise<null> => {
+	const { id, projectId, root } = domainContext;
+
+	return drizzleClient.executeQueryWithTransaction(async (tx) => {
+		const row = await workflowRepository.getAsync(id, tx);
+		if (!row || row.ProjectId !== projectId) {
+			throw new ResourceNotFoundException(`Workflow(${id}) could not be found`);
+		}
+
+		const status = row.Status as WorkflowStatus;
+		if (status !== 'DRAFT' && status !== 'INACTIVE') {
+			throw new InvalidArgumentException(
+				`Workflow(${id}) status ${status} does not allow step tree replacement`,
+			);
+		}
+
+		const schemaIds = collectRequestedSchemaIds(root);
+		const [relations, schemas] = await Promise.all([
+			stepSchemaRepository.listAllRelationsAsync(tx),
+			stepSchemaRepository.listSchemasByIdsAsync(schemaIds, tx),
+		]);
+
+		assertRequestedStepTree(root, schemas.map(toRequestedStepSchemaSummary), relations);
+
+		const rows = flattenRequestedStepTree(root, id);
+		await workflowRepository.deleteAllStepsByWorkflowAsync(id, tx);
+		await workflowRepository.createStepsAsync(rows, tx);
+		return null;
+	});
+};
+
+const collectRequestedSchemaIds = (root: RequestedStep): number[] => {
+	const ids = new Set<number>();
+	const visit = (node: RequestedStep): void => {
+		ids.add(node.schemaId);
+		for (const child of node.children) {
+			visit(child);
+		}
+	};
+	visit(root);
+	return Array.from(ids);
+};
+
+const toRequestedStepSchemaSummary = (row: WorkflowStepSchemaRow): RequestedStepSchemaSummary => ({
+	id: row.id,
+	name: row.name,
+	type: row.type as WorkflowStepSchemaType,
+	isHidden: row.isHidden,
+	condition: row.condition,
+});
 
 const collectSchemaIds = (root: WorkflowStep): number[] => {
 	const ids = new Set<number>();

@@ -1,6 +1,7 @@
 import { and, desc, eq } from 'drizzle-orm';
 
 import { drizzleClient, schema, type Connection } from './db';
+import type { WorkflowStepInsertRow } from '../../domain/helper/flatten-requested-step-tree';
 import type {
 	CreateWorkflowEntity,
 	ListWorkflowsConditions,
@@ -117,5 +118,38 @@ export const deleteAsync = async (
 	return drizzleClient.executeQuery(async (client) => {
 		const [header] = await client.delete(Workflows).where(eq(Workflows.Id, id));
 		return { affectedRows: header.affectedRows };
+	}, connection);
+};
+
+export const deleteAllStepsByWorkflowAsync = async (
+	workflowId: number,
+	connection: Connection | null = null,
+): Promise<{ affectedRows: number }> => {
+	return drizzleClient.executeQuery(async (client) => {
+		const [header] = await client
+			.delete(WorkflowSteps)
+			.where(eq(WorkflowSteps.WorkflowId, workflowId));
+		return { affectedRows: header.affectedRows };
+	}, connection);
+};
+
+export const createStepsAsync = async (
+	rows: WorkflowStepInsertRow[],
+	connection: Connection | null = null,
+): Promise<void> => {
+	if (rows.length === 0) {
+		return;
+	}
+	return drizzleClient.executeQuery(async (client) => {
+		await client.insert(WorkflowSteps).values(
+			rows.map((r) => ({
+				Id: r.id,
+				WorkflowId: r.workflowId,
+				SchemaId: r.schemaId,
+				Condition: r.condition,
+				ParentId: r.parentId,
+				Position: r.position,
+			})),
+		);
 	}, connection);
 };

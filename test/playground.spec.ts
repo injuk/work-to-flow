@@ -1,6 +1,7 @@
 import { handler } from '../src/route';
-import { ResourceNotFoundException } from '../src/domain/exception';
+import { InvalidArgumentException, ResourceNotFoundException } from '../src/domain/exception';
 import { db } from '../src/infrastructure/repository/db';
+import { encodeOrThrow } from '../src/util/hashId';
 import type {
 	GetWorkflowResponse,
 	ListWorkflowsResponse,
@@ -159,6 +160,148 @@ describe('playground', () => {
 		expect(detail.name).toBe('after');
 		expect(detail.description).toBe('before-desc');
 		expect(detail.status).toBe('DRAFT');
+	});
+
+	it('putWorkflowSteps가 시드 그래프 위에 트리를 배치하고 후속 getWorkflow에서 stepTree가 어셈블된다', async () => {
+		// Arrange — DRAFT 워크플로우 INSERT
+		const projectId = `playground-put-steps-${Date.now()}`;
+		const created = (await handler(
+			{
+				function: 'createWorkflow',
+				data: { name: 'put-steps-target' },
+				headers: { projectId },
+			},
+			{},
+		)) as { id: string };
+
+		// Arrange — 시드 그래프: START(1) → ASSET_CREATED(4) → SEND_EMAIL(11) → END(2)
+		const SCHEMA_START = encodeOrThrow(1);
+		const SCHEMA_END = encodeOrThrow(2);
+		const SCHEMA_ASSET_CREATED = encodeOrThrow(4);
+		const SCHEMA_SEND_EMAIL = encodeOrThrow(11);
+
+		// Act — PUT 트리 적용
+		const putResult = await handler(
+			{
+				function: 'putWorkflowSteps',
+				headers: { projectId },
+				pathParameters: { workflowId: created.id },
+				data: {
+					stepTree: {
+						schemaId: SCHEMA_START,
+						condition: {},
+						children: [
+							{
+								schemaId: SCHEMA_ASSET_CREATED,
+								condition: { mediaType: ['IMAGE'] },
+								children: [
+									{
+										schemaId: SCHEMA_SEND_EMAIL,
+										condition: {},
+										children: [{ schemaId: SCHEMA_END, condition: {}, children: [] }],
+									},
+								],
+							},
+						],
+					},
+				},
+			},
+			{},
+		);
+
+		// Assert — 204 시맨틱
+		expect(putResult).toBeNull();
+
+		// Act — getWorkflow로 stepTree 어셈블 확인
+		const detail = (await handler(
+			{
+				function: 'getWorkflow',
+				headers: { projectId },
+				pathParameters: { workflowId: created.id },
+			},
+			{},
+		)) as GetWorkflowResponse;
+
+		// Assert — root → child → grandchild → leaf 체인이 어셈블됐는지
+		expect(detail.stepTree).not.toBeNull();
+		expect(detail.stepTree?.schema.type).toBe('START');
+		expect(detail.stepTree?.children).toHaveLength(1);
+		const trigger = detail.stepTree?.children[0];
+		expect(trigger?.schema.type).toBe('TRIGGER');
+		expect(trigger?.condition).toEqual({ mediaType: ['IMAGE'] });
+		const sync = trigger?.children[0];
+		expect(sync?.schema.type).toBe('SYNC_TASK');
+		const end = sync?.children[0];
+		expect(end?.schema.type).toBe('END');
+		expect(end?.children).toEqual([]);
+	});
+
+	it('ACTIVE 상태 워크플로우의 putWorkflowSteps는 InvalidArgumentException을 throw한다', async () => {
+		// Arrange — DRAFT INSERT → 유효 트리 PUT → ACTIVE 전이
+		const projectId = `playground-put-active-${Date.now()}`;
+		const created = (await handler(
+			{
+				function: 'createWorkflow',
+				data: { name: 'active-target' },
+				headers: { projectId },
+			},
+			{},
+		)) as { id: string };
+
+		const SCHEMA_START = encodeOrThrow(1);
+		const SCHEMA_END = encodeOrThrow(2);
+		const SCHEMA_ASSET_CREATED = encodeOrThrow(4);
+		const SCHEMA_SEND_EMAIL = encodeOrThrow(11);
+		const validTree = {
+			schemaId: SCHEMA_START,
+			condition: {},
+			children: [
+				{
+					schemaId: SCHEMA_ASSET_CREATED,
+					condition: { mediaType: ['IMAGE'] },
+					children: [
+						{
+							schemaId: SCHEMA_SEND_EMAIL,
+							condition: {},
+							children: [{ schemaId: SCHEMA_END, condition: {}, children: [] }],
+						},
+					],
+				},
+			],
+		};
+
+		await handler(
+			{
+				function: 'putWorkflowSteps',
+				headers: { projectId },
+				pathParameters: { workflowId: created.id },
+				data: { stepTree: validTree },
+			},
+			{},
+		);
+
+		await handler(
+			{
+				function: 'updateWorkflow',
+				headers: { projectId },
+				pathParameters: { workflowId: created.id },
+				data: { status: 'ACTIVE' },
+			},
+			{},
+		);
+
+		// Act & Assert — ACTIVE 상태에서 PUT 재시도는 거부
+		await expect(
+			handler(
+				{
+					function: 'putWorkflowSteps',
+					headers: { projectId },
+					pathParameters: { workflowId: created.id },
+					data: { stepTree: validTree },
+				},
+				{},
+			),
+		).rejects.toBeInstanceOf(InvalidArgumentException);
 	});
 
 	it('deleteWorkflow 후 getWorkflow는 ResourceNotFoundException을 throw한다', async () => {

@@ -8,6 +8,7 @@ import type {
 	DeleteWorkflowConditions,
 	GetWorkflowConditions,
 	ListWorkflowsConditions,
+	PutWorkflowStepsConditions,
 	UpdateWorkflowConditions,
 } from '../../src/domain/type/workflow.dao';
 import type { Workflow, WorkflowSummary } from '../../src/domain/type/workflow.model';
@@ -29,6 +30,8 @@ const updateServiceMock =
 	jest.fn<(ctx: unknown, conditions: UpdateWorkflowConditions) => Promise<null>>();
 const deleteServiceMock =
 	jest.fn<(ctx: unknown, conditions: DeleteWorkflowConditions) => Promise<null>>();
+const putStepsServiceMock =
+	jest.fn<(ctx: unknown, conditions: PutWorkflowStepsConditions) => Promise<null>>();
 const encodeOrThrowMock = jest.fn<(plain: number) => string>();
 const decodeOrThrowMock = jest.fn<(cipher: string) => number>();
 
@@ -38,6 +41,7 @@ jest.unstable_mockModule('../../src/service/workflow.service', () => ({
 	listAsync: listServiceMock,
 	updateAsync: updateServiceMock,
 	deleteAsync: deleteServiceMock,
+	putStepsAsync: putStepsServiceMock,
 }));
 
 jest.unstable_mockModule('../../src/util/hashId', () => ({
@@ -45,7 +49,7 @@ jest.unstable_mockModule('../../src/util/hashId', () => ({
 	decodeOrThrow: decodeOrThrowMock,
 }));
 
-const { createAsync, deleteAsync, getAsync, listAsync, updateAsync } =
+const { createAsync, deleteAsync, getAsync, listAsync, putStepsAsync, updateAsync } =
 	await import('../../src/controller/workflow.controller');
 
 const buildSummary = (id: number): WorkflowSummary => ({
@@ -350,6 +354,111 @@ describe('workflow.controller', () => {
 			// Act & Assert
 			await expect(deleteAsync(event, undefined)).rejects.toBeInstanceOf(InvalidArgumentException);
 			expect(deleteServiceMock).not.toHaveBeenCalled();
+		});
+	});
+
+	describe('putStepsAsync', () => {
+		beforeEach(() => {
+			putStepsServiceMock.mockReset();
+			decodeOrThrowMock.mockReset();
+		});
+
+		it('workflowId와 트리 전체 schemaId를 디코드해 service에 전달하고 null을 반환한다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'putWorkflowSteps',
+				headers: { projectId: 'proj-1' },
+				pathParameters: { workflowId: 'cipher-42' },
+				data: {
+					stepTree: {
+						schemaId: 'cipher-1',
+						condition: {},
+						children: [{ schemaId: 'cipher-2', condition: { foo: 'bar' }, children: [] }],
+					},
+				},
+			};
+			decodeOrThrowMock.mockImplementation((cipher: string) => {
+				if (cipher === 'cipher-42') return 42;
+				if (cipher === 'cipher-1') return 1;
+				if (cipher === 'cipher-2') return 2;
+				throw new Error(`unexpected ${cipher}`);
+			});
+			putStepsServiceMock.mockResolvedValue(null);
+
+			// Act
+			const result = await putStepsAsync(event, undefined);
+
+			// Assert
+			expect(result).toBeNull();
+			expect(decodeOrThrowMock).toHaveBeenCalledWith('cipher-42');
+			expect(decodeOrThrowMock).toHaveBeenCalledWith('cipher-1');
+			expect(decodeOrThrowMock).toHaveBeenCalledWith('cipher-2');
+			expect(putStepsServiceMock).toHaveBeenCalledWith(undefined, {
+				id: 42,
+				projectId: 'proj-1',
+				root: {
+					schemaId: 1,
+					condition: {},
+					children: [{ schemaId: 2, condition: { foo: 'bar' }, children: [] }],
+				},
+			});
+		});
+
+		it('projectId 헤더가 없으면 InvalidArgumentException을 throw하고 service를 호출하지 않는다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'putWorkflowSteps',
+				pathParameters: { workflowId: 'cipher-1' },
+				data: {
+					stepTree: { schemaId: 'cipher-1', condition: {}, children: [] },
+				},
+			};
+
+			// Act & Assert
+			await expect(putStepsAsync(event, undefined)).rejects.toBeInstanceOf(
+				InvalidArgumentException,
+			);
+			expect(putStepsServiceMock).not.toHaveBeenCalled();
+		});
+
+		it('workflowId가 없으면 InvalidArgumentException을 throw하고 decodeOrThrow/service를 호출하지 않는다', async () => {
+			// Arrange
+			const event: BaseEvent = {
+				function: 'putWorkflowSteps',
+				headers: { projectId: 'proj-1' },
+				data: {
+					stepTree: { schemaId: 'cipher-1', condition: {}, children: [] },
+				},
+			};
+
+			// Act & Assert
+			await expect(putStepsAsync(event, undefined)).rejects.toBeInstanceOf(
+				InvalidArgumentException,
+			);
+			expect(decodeOrThrowMock).not.toHaveBeenCalled();
+			expect(putStepsServiceMock).not.toHaveBeenCalled();
+		});
+
+		it('schemaId 디코드가 실패하면 그대로 전파되고 service는 호출되지 않는다', async () => {
+			// Arrange — workflowId 디코드는 통과시키고, 트리 schemaId만 거부
+			const event: BaseEvent = {
+				function: 'putWorkflowSteps',
+				headers: { projectId: 'proj-1' },
+				pathParameters: { workflowId: 'cipher-42' },
+				data: {
+					stepTree: { schemaId: 'invalid', condition: {}, children: [] },
+				},
+			};
+			decodeOrThrowMock.mockImplementation((cipher: string) => {
+				if (cipher === 'cipher-42') return 42;
+				throw new InvalidArgumentException('bad cipher');
+			});
+
+			// Act & Assert
+			await expect(putStepsAsync(event, undefined)).rejects.toBeInstanceOf(
+				InvalidArgumentException,
+			);
+			expect(putStepsServiceMock).not.toHaveBeenCalled();
 		});
 	});
 });

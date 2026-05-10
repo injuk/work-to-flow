@@ -1,6 +1,7 @@
 import type { BaseEvent } from '../core/lambda.router';
 import { requireProjectId } from '../core/request';
 import { InvalidArgumentException } from '../domain/exception';
+import type { RequestedStep } from '../domain/type/workflow-step.model';
 import * as workflowService from '../service/workflow.service';
 import { decodeOrThrow, encodeOrThrow } from '../util/hashId';
 import type {
@@ -12,6 +13,9 @@ import type {
 	GetWorkflowResponse,
 	ListWorkflowsEvent,
 	ListWorkflowsResponse,
+	PutWorkflowStepsEvent,
+	PutWorkflowStepsResponse,
+	RequestedStepInput,
 	UpdateWorkflowEvent,
 	UpdateWorkflowResponse,
 } from './dto/workflow.dto';
@@ -104,3 +108,27 @@ export const deleteAsync = async (
 
 	return null;
 };
+
+export const putStepsAsync = async (
+	event: BaseEvent,
+	_context: unknown,
+): Promise<PutWorkflowStepsResponse> => {
+	const e = event as PutWorkflowStepsEvent;
+	const projectId = requireProjectId(event);
+	const rawId = e.pathParameters?.workflowId;
+	if (!rawId) {
+		throw new InvalidArgumentException('workflowId is required');
+	}
+	const id = decodeOrThrow(rawId);
+	const root = decodeRequestedStepTree(e.data.stepTree);
+
+	await workflowService.putStepsAsync(undefined, { id, projectId, root });
+
+	return null;
+};
+
+const decodeRequestedStepTree = (input: RequestedStepInput): RequestedStep => ({
+	schemaId: decodeOrThrow(input.schemaId),
+	condition: input.condition,
+	children: input.children.map(decodeRequestedStepTree),
+});

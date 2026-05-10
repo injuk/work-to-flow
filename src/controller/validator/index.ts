@@ -5,6 +5,7 @@ import {
 	deleteWorkflowSchema,
 	getWorkflowSchema,
 	listWorkflowsSchema,
+	putWorkflowStepsSchema,
 	updateWorkflowSchema,
 } from './workflow.schema';
 import { InvalidArgumentException } from '../../domain/exception';
@@ -15,6 +16,7 @@ const schemas: Record<string, z.ZodTypeAny> = {
 	getWorkflow: getWorkflowSchema,
 	updateWorkflow: updateWorkflowSchema,
 	deleteWorkflow: deleteWorkflowSchema,
+	putWorkflowSteps: putWorkflowStepsSchema,
 };
 
 export default class Validator {
