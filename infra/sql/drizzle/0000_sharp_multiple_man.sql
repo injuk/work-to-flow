@@ -94,7 +94,6 @@ ALTER TABLE `WorkflowExecutions` ADD CONSTRAINT `WorkflowExecutions_fk_1` FOREIG
 ALTER TABLE `WorkflowResumeTriggers` ADD CONSTRAINT `WorkflowResumeTriggers_fk_1` FOREIGN KEY (`StepExecutionId`) REFERENCES `WorkflowStepExecutions`(`Id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `WorkflowStartTriggers` ADD CONSTRAINT `WorkflowStartTriggers_fk_1` FOREIGN KEY (`WorkflowId`) REFERENCES `Workflows`(`Id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `WorkflowStepExecutions` ADD CONSTRAINT `WorkflowStepExecutions_fk_1` FOREIGN KEY (`ExecutionId`) REFERENCES `WorkflowExecutions`(`Id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE `WorkflowStepExecutions` ADD CONSTRAINT `WorkflowStepExecutions_fk_2` FOREIGN KEY (`StepId`) REFERENCES `WorkflowSteps`(`Id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 CREATE INDEX `WorkflowSteps_idx_1` ON `WorkflowSteps` (`WorkflowId`,`Id`);--> statement-breakpoint
 ALTER TABLE `WorkflowSteps` ADD CONSTRAINT `WorkflowSteps_fk_1` FOREIGN KEY (`WorkflowId`) REFERENCES `Workflows`(`Id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE `WorkflowSteps` ADD CONSTRAINT `WorkflowSteps_fk_2` FOREIGN KEY (`SchemaId`) REFERENCES `WorkflowStepSchemas`(`Id`) ON DELETE no action ON UPDATE no action;--> statement-breakpoint

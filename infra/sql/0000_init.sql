@@ -83,7 +83,6 @@ CREATE TABLE IF NOT EXISTS WorkflowStepExecutions (
     EndedAt         DATETIME     NULL,
     PRIMARY KEY (Id),
     CONSTRAINT WorkflowStepExecutions_fk_1 FOREIGN KEY (ExecutionId) REFERENCES WorkflowExecutions (Id) ON DELETE CASCADE,
-    CONSTRAINT WorkflowStepExecutions_fk_2 FOREIGN KEY (StepId) REFERENCES WorkflowSteps (Id) ON DELETE CASCADE,
     UNIQUE KEY WorkflowStepExecutions_uq_1 (ExecutionId, StepId)
 ) ENGINE = InnoDB
 DEFAULT CHARSET = utf8;

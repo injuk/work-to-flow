@@ -142,11 +142,12 @@ export const WorkflowStepExecutions = mysqlTable(
 			columns: [t.ExecutionId],
 			foreignColumns: [WorkflowExecutions.Id],
 		}).onDelete('cascade'),
-		foreignKey({
-			name: 'WorkflowStepExecutions_fk_2',
-			columns: [t.StepId],
-			foreignColumns: [WorkflowSteps.Id],
-		}).onDelete('cascade'),
+		// WorkflowStep은 PUT 방식으로 동작하므로, WorkflowStep이 제거되면 audit용 데이터인 StepExecution의 데이터도 모두 제거될 수 있기에 FK를 제거한다.
+		// foreignKey({
+		// 	name: 'WorkflowStepExecutions_fk_2',
+		// 	columns: [t.StepId],
+		// 	foreignColumns: [WorkflowSteps.Id],
+		// }).onDelete('cascade'),
 		unique('WorkflowStepExecutions_uq_1').on(t.ExecutionId, t.StepId),
 	],
 );
