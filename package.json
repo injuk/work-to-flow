@@ -26,6 +26,7 @@
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {
+		"@aws-sdk/client-lambda": "^3.1045.0",
 		"@eslint/js": "^9.39.4",
 		"@types/jest": "^30.0.0",
 		"@types/node": "^22.10.1",
