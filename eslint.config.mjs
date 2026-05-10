@@ -50,12 +50,18 @@ export default tseslint.config(
 			'import/no-self-import': 'error',
 
 			'@typescript-eslint/no-explicit-any': 'warn',
-			'@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+			'@typescript-eslint/no-unused-vars': [
+				'warn',
+				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+			],
 			'@typescript-eslint/no-floating-promises': 'error',
 			'@typescript-eslint/no-misused-promises': 'error',
 			'@typescript-eslint/await-thenable': 'error',
 			'@typescript-eslint/require-await': 'error',
-			'@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports', fixStyle: 'separate-type-imports' }],
+			'@typescript-eslint/consistent-type-imports': [
+				'error',
+				{ prefer: 'type-imports', fixStyle: 'separate-type-imports' },
+			],
 			'@typescript-eslint/no-non-null-assertion': 'warn',
 
 			eqeqeq: ['error', 'always'],
@@ -84,7 +90,10 @@ export default tseslint.config(
 			'prettier/prettier': 'error',
 			'@typescript-eslint/no-explicit-any': 'off',
 			'@typescript-eslint/no-non-null-assertion': 'off',
-			'@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
+			'@typescript-eslint/no-unused-vars': [
+				'warn',
+				{ argsIgnorePattern: '^_', varsIgnorePattern: '^_' },
+			],
 		},
 	},
 	prettier,
