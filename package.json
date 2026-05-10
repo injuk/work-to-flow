@@ -23,6 +23,7 @@
 	"author": "",
 	"license": "ISC",
 	"dependencies": {
+		"ajv": "^8.20.0",
 		"drizzle-orm": "^0.45.2",
 		"hashids": "^2.3.0",
 		"mysql2": "^3.11.5",
