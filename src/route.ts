@@ -1,4 +1,4 @@
-import { apiRouterBase, type BaseEvent, type Routes } from './core';
+import { apiRouterBase, type BaseEvent, type Routes } from './core/lambda.router';
 import Validator from './controller/validator';
 import * as workflowController from './controller/workflow.controller';
 

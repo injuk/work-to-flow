@@ -1,5 +1,5 @@
 import * as workflowService from '../service/workflow.service';
-import type { BaseEvent } from '../core';
+import type { BaseEvent } from '../core/lambda.router';
 
 interface SimpleCreateEvent extends BaseEvent {
   function: 'simpleCreate';
