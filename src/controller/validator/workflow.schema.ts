@@ -9,3 +9,21 @@ export const createWorkflowSchema = z
 		}),
 	})
 	.passthrough();
+
+export const listWorkflowsSchema = z
+	.object({
+		function: z.literal('listWorkflows'),
+		queryStringParameters: z
+			.object({
+				nextToken: z.string().min(1).optional(),
+				limit: z
+					.union([z.string(), z.number()])
+					.transform((v) => Number(v))
+					.pipe(z.number().int().positive().max(200))
+					.optional(),
+				status: z.enum(['INACTIVE', 'ACTIVE', 'DRAFT']).optional(),
+			})
+			.partial()
+			.optional(),
+	})
+	.passthrough();

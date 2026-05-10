@@ -4,6 +4,7 @@ import { apiRouterBase, type BaseEvent, type Routes } from './core/lambda.router
 
 export const routes: Routes = {
 	createWorkflow: workflowController.createAsync,
+	listWorkflows: workflowController.listAsync,
 };
 
 export const handler = (event: BaseEvent, context: unknown) =>
