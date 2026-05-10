@@ -47,6 +47,7 @@ describe('playground', () => {
 			},
 			{},
 		)) as ListWorkflowsResponse;
+		console.log(JSON.stringify(firstPage, null, 2));
 
 		// Assert — 2건 + nextToken
 		expect(firstPage.results).toHaveLength(2);

@@ -1,6 +1,5 @@
-export default {
+const base = {
 	testEnvironment: 'node',
-	testRegex: '.*\\.test\\.ts$',
 	testPathIgnorePatterns: ['/node_modules/', '/dist/', '/local/'],
 	setupFiles: ['dotenv/config'],
 	extensionsToTreatAsEsm: ['.ts'],
@@ -17,6 +16,13 @@ export default {
 		],
 	},
 	moduleFileExtensions: ['ts', 'tsx', 'js', 'mjs', 'cjs', 'json'],
+};
+
+export default {
+	projects: [
+		{ ...base, displayName: 'unit', testRegex: '.*\\.test\\.ts$' },
+		{ ...base, displayName: 'integration', testRegex: '.*\\.spec\\.ts$' },
+	],
 
 	collectCoverageFrom: [
 		'src/**/*.ts',
