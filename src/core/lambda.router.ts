@@ -3,6 +3,10 @@ import { UncaughtException } from '../domain/exception';
 
 export interface BaseEvent {
 	function: string;
+	data?: unknown;
+	pathParameters?: Record<string, string | undefined>;
+	queryStringParameters?: Record<string, string | undefined>;
+	headers?: Record<string, string | undefined>;
 	[key: string]: unknown;
 }
 
